@@ -76,7 +76,7 @@ clock = pygame.time.Clock()
 while running:
 
     # RGB = Red, Green, Blue
-    screen.fill((0, 0, 0))
+    screen.fill((0, 50, 0))
     # Background Image
     if background:
         screen.blit(background, (0, 0))
