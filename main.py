@@ -14,6 +14,28 @@ except OSError:
     print("No background")
 
 
+class Room:
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+    def out_of(self, map_object):
+        return (screen_width + map_object.width - self.width) / 2.0 > map_object.x or \
+               (screen_width - map_object.width + self.width) / 2.0 < map_object.x or \
+               (screen_height + map_object.height - self.height) / 2.0 > map_object.y or \
+               (screen_height - map_object.height + self.height) / 2.0 < map_object.y
+
+    def correct(self, map_object):
+        if (screen_width + map_object.width - self.width) / 2.0 > map_object.x:
+            map_object.move((screen_width + map_object.width - self.width) / 2.0 - map_object.x, 0)
+        if (screen_width - map_object.width + self.width) / 2.0 < map_object.x:
+            map_object.move((screen_width - map_object.width + self.width) / 2.0 - map_object.x, 0)
+        if (screen_height + map_object.height - self.height) / 2.0 > map_object.y:
+            map_object.move(0, (screen_height + map_object.height - self.height) / 2.0 - map_object.y)
+        if (screen_height - map_object.height + self.height) / 2.0 < map_object.y:
+            map_object.move(0, (screen_height - map_object.height + self.height) / 2.0 - map_object.y)
+
+
 class ObjectOnMap:
     def __init__(self, x, y, width, height):
         self.x = x
@@ -21,9 +43,9 @@ class ObjectOnMap:
         self.width = width
         self.height = height
 
-    def move(self, dx, dy):
-        self.x += dx
-        self.y += dy
+    def move(self, delta_x, delta_y):
+        self.x += delta_x
+        self.y += delta_y
 
 
 class VisibleOnMap(ObjectOnMap):
@@ -33,7 +55,7 @@ class VisibleOnMap(ObjectOnMap):
 
     def draw(self):
         if self.image:
-            screen.blit(self.image, (int(self.x + (self.width / 2)), int(self.y + (self.height / 2))))
+            screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
 
 
 class Player(VisibleOnMap):
@@ -47,6 +69,8 @@ class Enemy(VisibleOnMap):
         super().__init__(x, y, width, height, image)
 
 
+room = Room(600, 600)
+
 playerImg = None
 
 try:
@@ -56,7 +80,13 @@ except OSError:
 player = Player(screen_width / 2.0, screen_height / 2.0, 32, 32, playerImg, 0.5)
 
 # Enemies
-enemies = []
+enemyImg = None
+
+try:
+    enemyImg = pygame.image.load('enemy.png')
+except OSError:
+    print("No enemy")
+enemies = [Enemy(300, 300, 16, 16, enemyImg)]
 
 
 def isCollision(A, B):
@@ -76,7 +106,7 @@ clock = pygame.time.Clock()
 while running:
 
     # RGB = Red, Green, Blue
-    screen.fill((0, 50, 0))
+    screen.fill((25, 25, 25))
     # Background Image
     if background:
         screen.blit(background, (0, 0))
@@ -129,7 +159,15 @@ while running:
         else:
             dy = -player.speed
 
+    for e in enemies:
+        e.draw()
     player.draw()
     pygame.display.update()
     dt = clock.tick(fps)
     player.move(dx*dt, dy*dt)
+    for e in enemies:
+        if isCollision(e, player):
+            player.move(-dx * dt, -dy * dt)
+    if room:
+        if room.out_of(player):
+            room.correct(player)
