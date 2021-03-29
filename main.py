@@ -77,7 +77,7 @@ try:
     playerImg = pygame.image.load('player.png')
 except OSError:
     print("No player")
-player = Player(screen_width / 2.0, screen_height / 2.0, 32, 32, playerImg, 0.5)
+player = Player(screen_width / 2.0, screen_height / 2.0, 32, 32, playerImg, 0.1)
 
 # Enemies
 enemyImg = None
@@ -89,11 +89,20 @@ except OSError:
 enemies = [Enemy(300, 300, 16, 16, enemyImg)]
 
 
-def isCollision(A, B):
-    if abs(A.x - B.x) < abs(A.width - B.width) and abs(A.y - B.y) < abs(A.height - B.height):
+def is_collision(A, B):
+    if abs(A.x - B.x) < abs(A.width + B.width) / 2.0 and abs(A.y - B.y) < abs(A.height + B.height) / 2.0:
         return True
     else:
         return False
+
+
+def correct_collision(A, B):
+    if abs(A.x - B.x) < abs(A.width + B.width) / 2.0:
+        # B.move()
+        pass
+    if abs(A.y - B.y) < abs(A.height + B.height) / 2.0:
+        # B.move()
+        pass
 
 
 # Game Loop
@@ -141,13 +150,13 @@ while running:
     dy = 0
     if horizontal_move and vertical_move:
         if down:
-            dy = player.speed/math.sqrt(2)
+            dy = player.speed / math.sqrt(2)
         else:
-            dy = -player.speed/math.sqrt(2)
+            dy = -player.speed / math.sqrt(2)
         if right:
-            dx = player.speed/math.sqrt(2)
+            dx = player.speed / math.sqrt(2)
         else:
-            dx = -player.speed/math.sqrt(2)
+            dx = -player.speed / math.sqrt(2)
     elif horizontal_move:
         if right:
             dx = player.speed
@@ -164,9 +173,10 @@ while running:
     player.draw()
     pygame.display.update()
     dt = clock.tick(fps)
-    player.move(dx*dt, dy*dt)
+    player.move(dx * dt, dy * dt)
     for e in enemies:
-        if isCollision(e, player):
+        if is_collision(e, player):
+            # print(str(player.x)+" "+str(player.y)+" "+str(e.x)+" "+str(e.y))
             player.move(-dx * dt, -dy * dt)
     if room:
         if room.out_of(player):
