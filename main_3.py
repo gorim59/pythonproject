@@ -64,15 +64,17 @@ class Player(VisibleOnMap):
         self.speed = speed
         self.health = 100
         self.damage = 10
+        self.items = []
 
-    def give(self):
-        pass
+    def give(self, item):
+        self.items.append(item)
 
-    def take(self):
-        pass
+    def take(self, item):
+        if self.have(item):
+            self.items.remove(item)
 
-    def have(self):
-        pass
+    def have(self, item):
+        return item in self.items
 
 
 class Enemy(VisibleOnMap):
@@ -82,6 +84,7 @@ class Enemy(VisibleOnMap):
         self.health = 25
         self.damage = 10
         self.alive = True
+        self.items = []
 
     def interact(self, player):
         if self.alive:
@@ -105,12 +108,23 @@ class Enemy(VisibleOnMap):
             else:
                 screen.blit(self.dead_image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
 
+    def give(self, item):
+        self.items.append(item)
+
+    def take(self, item):
+        if self.have(item):
+            self.items.remove(item)
+
+    def have(self, item):
+        return item in self.items
+
 
 class Chest(VisibleOnMap):
     def __init__(self, x, y, width, height, image):
         super().__init__(x, y, width, height, image)
         self.open = False
         self.opener = None
+        self.items = []
 
     def interact(self, player):
         if self.open:
@@ -129,14 +143,15 @@ class Chest(VisibleOnMap):
             print("Closing chest")
             self.open = False
 
-    def give(self):
-        pass
+    def give(self, item):
+        self.items.append(item)
 
-    def take(self):
-        pass
+    def take(self, item):
+        if self.have(item):
+            self.items.remove(item)
 
-    def have(self):
-        pass
+    def have(self, item):
+        return item in self.items
 
 
 class Campfire(VisibleOnMap):
