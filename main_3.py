@@ -49,10 +49,9 @@ class ObjectOnMap:
 
 
 class VisibleOnMap(ObjectOnMap):
-    def __init__(self, x, y, width, height, image,dead_image):
+    def __init__(self, x, y, width, height, image):
         super().__init__(x, y, width, height)
         self.image = image
-        self.dead_image = dead_image
 
     def draw(self):
         if self.image:
@@ -77,20 +76,27 @@ class Player(VisibleOnMap):
 
 
 class Enemy(VisibleOnMap):
-    def __init__(self, x, y, width, height, image):
+    def __init__(self, x, y, width, height, image, dead_image):
         super().__init__(x, y, width, height, image)
+        self.dead_image = dead_image
         self.health = 25
         self.damage = 10
         self.alive = True
 
+    def interact(self, player):
+        if self.alive:
+            self.attack(player)
+
     def attack(self, player):
+        print("Fight player({} hp) against enemy({} hp).".format(player.health, self.health))
         self.health -= player.damage
         if self.health <= 0:
             self.kill()
         player.health -= self.damage
 
     def kill(self):
-        alive = False
+        print("Dead.")
+        self.alive = False
 
     def draw(self):
         if self.image:
@@ -104,20 +110,24 @@ class Chest(VisibleOnMap):
     def __init__(self, x, y, width, height, image):
         super().__init__(x, y, width, height, image)
         self.open = False
+        self.opener = None
 
-    def interact(self):
-        self.open_chest()
+    def interact(self, player):
+        if self.open:
+            self.close_chest()
+        else:
+            self.open_chest(player)
 
-    def open_chest(self):
+    def open_chest(self, player):
+        if not self.open:
+            print("Opening chest")
+            self.open = True
+            self.opener = player
+
+    def close_chest(self):
         if self.open:
             print("Closing chest")
             self.open = False
-        else:
-            print("Opening chest")
-            self.open = True
-
-    def close_chest(self):
-        pass
 
     def give(self):
         pass
@@ -130,11 +140,11 @@ class Chest(VisibleOnMap):
 
 
 class Campfire(VisibleOnMap):
-    def __init__(self, x, y, width, height, image, ):
+    def __init__(self, x, y, width, height, image):
         super().__init__(x, y, width, height, image)
         self.lit = False
 
-    def interact(self):
+    def interact(self, player):
         if self.lit is True:
             closest.image = unlit_campfireImage
             closest.lit = False
@@ -143,11 +153,55 @@ class Campfire(VisibleOnMap):
             closest.lit = True
 
 
+def X_collision(A, B):
+    if abs(A.x - B.x) < (A.width + B.width) / 2.0:
+        if B.x > A.x:
+            return ((A.width + B.width) / 2.0) - (B.x - A.x)
+        else:
+            return (A.x - B.x) - ((A.width + B.width) / 2.0)
+    else:
+        return 0
+
+
+def Y_collision(A, B):
+    if abs(A.y - B.y) < (A.height + B.height) / 2.0:
+        if B.y > A.y:
+            return ((A.height + B.height) / 2.0) - (B.y - A.y)
+        else:
+            return (A.y - B.y) - ((A.height + B.height) / 2.0)
+    else:
+        return 0
+
+
 def is_collision(A, B):
-    if abs(A.x - B.x) < abs(A.width + B.width) / 2.0 and abs(A.y - B.y) < abs(A.height + B.height) / 2.0:
+    if isinstance(A, Enemy):
+        if not A.alive:
+            return False
+    if isinstance(B, Enemy):
+        if not B.alive:
+            return False
+    if abs(X_collision(A, B)) > 0 and abs(Y_collision(A, B)) > 0:
+        print(X_collision(A, B))
+        print(Y_collision(A, B))
         return True
     else:
         return False
+
+
+def correct_collision(A, B):
+    x_dif=X_collision(A, B)
+    y_dif=Y_collision(A, B)
+    print(X_collision(A, B))
+    print(Y_collision(A, B))
+    print("from ({}, {}),({}, {})".format(A.x, A.y, B.x, B.y))
+    if abs(x_dif) > 0 and abs(y_dif) > 0:
+        if abs(x_dif) < abs(y_dif):
+            print("X in both")
+            B.move(x_dif, 0)
+        else:
+            print("Y in both")
+            B.move(0, y_dif)
+    print("to   ({}, {}),({}, {})".format(A.x, A.y, B.x, B.y))
 
 
 def is_nearby(A, B):
@@ -155,15 +209,6 @@ def is_nearby(A, B):
         return True
     else:
         return False
-
-
-def correct_collision(A, B):
-    if abs(A.x - B.x) < abs(A.width + B.width) / 2.0:
-        # B.move()
-        pass
-    if abs(A.y - B.y) < abs(A.height + B.height) / 2.0:
-        # B.move()
-        pass
 
 
 def closest_object(A):
@@ -189,6 +234,7 @@ player = Player(screen_width / 2.0, screen_height / 2.0, 32, 32, playerImg, 0.1)
 
 # Enemies
 enemyImg = None
+dead_imageImg = None
 
 try:
     enemyImg = pygame.image.load('enemy.png')
@@ -211,21 +257,23 @@ except OSError:
     print('No object image')
 objects = [Chest(450, 300, 32, 20, chestImage), Campfire(500, 300, 32, 10, unlit_campfireImage)]
 
-
 # Game Loop
 running = True
 left = False
 right = False
 up = False
 down = False
-interact = False
+interact_E = False
+interact_R = False
 opened = []
 game_font = pygame.font.SysFont("monospace", 15)
 interact_label = game_font.render("press E to interact", True, (255, 255, 255))
+attack_label = game_font.render("press E to atack", True, (255, 255, 255))
 
 clock = pygame.time.Clock()
 while running:
-    interact = False
+    interact_E = False
+    interact_R = False
     # RGB = Red, Green, Blue
     screen.fill((25, 25, 25))
 
@@ -247,7 +295,9 @@ while running:
             if event.key == pygame.K_DOWN:
                 down = True
             if event.key == pygame.K_e:
-                interact = True
+                interact_E = True
+            if event.key == pygame.K_r:
+                interact_R = True
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
@@ -293,15 +343,29 @@ while running:
     for e in enemies:
         if is_collision(e, player):
             # print(str(player.x)+" "+str(player.y)+" "+str(e.x)+" "+str(e.y))
-            player.move(-dx * dt, -dy * dt)
+            correct_collision(e, player)
+            # player.move(-dx * dt, -dy * dt)
     for o in objects:
         if is_collision(o, player):
-            player.move(-dx * dt, -dy * dt)
-    closest = closest_object(objects)
+            correct_collision(o, player)
+            # player.move(-dx * dt, -dy * dt)
+    for o in objects:
+        if isinstance(o, Chest):
+            if o.open:
+                if not is_nearby(o, player):
+                    o.close_chest()
+
+    closest = closest_object(objects + enemies)
     if is_nearby(closest, player):
-        screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
-        if interact:
-            closest.interact()
+        if isinstance(closest, Enemy):
+            if closest.alive:
+                screen.blit(attack_label, (closest.x + closest.width, closest.y - closest.height))
+            else:
+                screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
+        else:
+            screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
+        if interact_E:
+            closest.interact(player)
 
     if room:
         if room.out_of(player):
