@@ -58,13 +58,25 @@ class VisibleOnMap(ObjectOnMap):
             screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
 
 
+class Item:
+    def __init__(self, id, value, name):
+        self.id = id
+        self.value = value
+        self.name = name
+
+    def __str__(self):
+        return "{} (id:{} gold:{})".format(self.name, self.id, self.value)
+
+    def __repr__(self):
+        return str(self)
+
 class Player(VisibleOnMap):
     def __init__(self, x, y, width, height, image, speed):
         super().__init__(x, y, width, height, image)
         self.speed = speed
         self.health = 100
         self.damage = 10
-        self.items = []
+        self.items = [Item(1, 30, "sword"), Item(1, 30, "shield")]
 
     def give(self, item):
         self.items.append(item)
@@ -84,18 +96,27 @@ class Enemy(VisibleOnMap):
         self.health = 25
         self.damage = 10
         self.alive = True
-        self.items = []
+        self.items = [Item(5, 30, "loot 3")]
 
     def interact(self, player):
         if self.alive:
             self.attack(player)
+        else:
+            while len(self.items) > 0:
+                temp = self.items[0]
+                self.take(temp)
+                player.give(temp)
 
     def attack(self, player):
         print("Fight player({} hp) against enemy({} hp).".format(player.health, self.health))
         self.health -= player.damage
         if self.health <= 0:
             self.kill()
-        player.health -= self.damage
+            print(self.items)
+            self.health = 0
+        else:
+            player.health -= self.damage
+        print("After fight player({} hp) against enemy({} hp).".format(player.health, self.health))
 
     def kill(self):
         print("Dead.")
@@ -124,10 +145,14 @@ class Chest(VisibleOnMap):
         super().__init__(x, y, width, height, image)
         self.open = False
         self.opener = None
-        self.items = []
+        self.items = [Item(3, 30, "loot 1"), Item(4, 30, "loot 2")]
 
     def interact(self, player):
         if self.open:
+            while len(self.items) > 0:
+                temp = self.items[0]
+                self.take(temp)
+                player.give(temp)
             self.close_chest()
         else:
             self.open_chest(player)
@@ -135,6 +160,7 @@ class Chest(VisibleOnMap):
     def open_chest(self, player):
         if not self.open:
             print("Opening chest")
+            print(self.items)
             self.open = True
             self.opener = player
 
@@ -280,6 +306,7 @@ up = False
 down = False
 interact_E = False
 interact_R = False
+inventory = False
 opened = []
 game_font = pygame.font.SysFont("monospace", 15)
 interact_label = game_font.render("press E to interact", True, (255, 255, 255))
@@ -289,6 +316,7 @@ clock = pygame.time.Clock()
 while running:
     interact_E = False
     interact_R = False
+    inventory = False
     # RGB = Red, Green, Blue
     screen.fill((25, 25, 25))
 
@@ -313,6 +341,8 @@ while running:
                 interact_E = True
             if event.key == pygame.K_r:
                 interact_R = True
+            if event.key == pygame.K_i:
+                inventory = True
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
@@ -381,7 +411,8 @@ while running:
             screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
         if interact_E:
             closest.interact(player)
-
+    if inventory:
+        print(player.items)
     if room:
         if room.out_of(player):
             room.correct(player)
