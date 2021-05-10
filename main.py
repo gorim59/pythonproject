@@ -27,6 +27,7 @@ class Room:
         self.width = width
         self.height = height
         self.objects = []
+        self.enemies = []
 
     def out_of(self, map_object):
         return (screen_width + map_object.width - self.width) / 2.0 > map_object.x or \
@@ -69,8 +70,8 @@ class VisibleOnMap(ObjectOnMap):
 
 
 class Item:
-    def __init__(self, id, value, name):
-        self.id = id
+    def __init__(self, item_id, value, name):
+        self.id = item_id
         self.value = value
         self.name = name
 
@@ -82,7 +83,7 @@ class Item:
 
 
 class Player(VisibleOnMap):
-    def __init__(self, x, y, width, height, image, speed):
+    def __init__(self, x, y, width, height, image, speed, loc):
         super().__init__(x, y, width, height, image)
         self.speed = speed
         self.health = 100
@@ -90,6 +91,7 @@ class Player(VisibleOnMap):
         self.damage = 10
         self.items = [Item(1, 30, "sword"), Item(1, 30, "shield")]
         self.evasion = 0
+        self.location = loc
 
     def give(self, item):
         self.items.append(item)
@@ -260,9 +262,20 @@ class Shrine(VisibleOnMap):
 
 
 class Door(VisibleOnMap):
-    def __init__(self, x, y, width=32, height=32, image=None):
+    def __init__(self, x, y, width=32, height=32, whereTo=None, image=None):
         super().__init__(x, y, width, height, image)
+        self.direction = whereTo
         self.collisional = False
+
+    def interact(self, opening_player):
+        opening_player.x = screen_width / 2.0
+        opening_player.y = screen_height / 2.0
+        for objects in self.direction.objects:
+            if isinstance(objects, Door):
+                if objects.direction is opening_player.location:
+                    opening_player.x = objects.x
+                    opening_player.y = objects.y
+        opening_player.location = self.direction
 
 
 def X_collision(A, B):
@@ -286,7 +299,7 @@ def Y_collision(A, B):
 
 
 def is_collision(A, B):
-    if (not B.B.is_colidable()()) or (not A.is_colidable()):
+    if (not B.collisional) or (not A.collisional):
         return False
     if abs(X_collision(A, B)) > 0 and abs(Y_collision(A, B)) > 0:
         print(X_collision(A, B))
@@ -330,7 +343,8 @@ def closest_object(A):
     return closest_objet
 
 
-room = Room(600, 600)
+room1 = Room(600, 600)
+room2 = Room(600, 600)
 
 playerImg = None
 
@@ -338,7 +352,7 @@ try:
     playerImg = pygame.image.load('player.png')
 except OSError:
     print("No player")
-player = Player(screen_width / 2.0, screen_height / 2.0, 32, 32, playerImg, 0.1)
+player = Player(screen_width / 2.0, screen_height / 2.0, 32, 32, playerImg, 0.1, room1)
 
 # Enemies
 enemyImg = None
@@ -352,14 +366,16 @@ try:
     dead_imageImg = pygame.image.load('dead enemy.png')
 except OSError:
     print("No dead enemy")
-enemies = [Enemy(300, 300, 16, 16, enemyImg, dead_imageImg)]
+room1.enemies = [Enemy(300, 300, 16, 16, enemyImg, dead_imageImg)]
 
 chestImage = None
 lit_campfire_image = None
 unlit_campfire_image = None
 used_shrine_image = None
 unused_shrine_image = None
+door_image = None
 try:
+    door_image = pygame.image.load('door.png')
     chestImage = pygame.image.load('chest.png')
     unlit_campfire_image = pygame.image.load('unlit_campfire.png')
     lit_campfire_image = pygame.image.load('lit_campfire.png')
@@ -368,9 +384,17 @@ try:
 except OSError:
     print('No object image')
 
-objects = [Chest(450, 300, 32, 20, chestImage), Campfire(500, 300, 32, 10, unlit_campfire_image),
-           Shrine(x=600, y=300, type=ShrineTypes.HASTE, width=32, height=32, image=unused_shrine_image)]
+room1.objects = [Chest(450, 300, 32, 20, chestImage),
+                 Campfire(500, 300, 32, 10, unlit_campfire_image),
+                 Shrine(x=600, y=300, type=ShrineTypes.HASTE, width=32, height=32, image=unused_shrine_image),
+                 Door((screen_width + 32 - room1.width) / 2.0, screen_height / 2.0, 32, 32, room2, door_image)]
+room2.objects = [Door((screen_width - 32 + room2.width) / 2.0, screen_height / 2.0, 32, 32, room1, door_image)]
 
+def out_of(self, map_object):
+    return (screen_width + map_object.width - self.width) / 2.0 > map_object.x or \
+           (screen_width - map_object.width + self.width) / 2.0 < map_object.x or \
+           (screen_height + map_object.height - self.height) / 2.0 > map_object.y or \
+           (screen_height - map_object.height + self.height) / 2.0 < map_object.y
 # Game Loop
 running = True
 left = False
@@ -451,42 +475,42 @@ while running:
         else:
             dy = -player.speed
 
-    for e in enemies:
+    for e in player.location.enemies:
         e.draw()
-    for o in objects:
+    for o in player.location.objects:
         o.draw()
     player.draw()
     dt = clock.tick(fps)
     player.move(dx * dt, dy * dt)
-    for e in enemies:
+    for e in player.location.enemies:
         if is_collision(e, player):
             # print(str(player.x)+" "+str(player.y)+" "+str(e.x)+" "+str(e.y))
             correct_collision(e, player)
             # player.move(-dx * dt, -dy * dt)
-    for o in objects:
+    for o in player.location.objects:
         if is_collision(o, player):
             correct_collision(o, player)
             # player.move(-dx * dt, -dy * dt)
-    for o in objects:
+    for o in player.location.objects:
         if isinstance(o, Chest):
             if o.open:
                 if not is_nearby(o, player):
                     o.close_chest()
 
-    closest = closest_object(objects + enemies)
+    closest = closest_object(player.location.objects + player.location.enemies)
     if is_nearby(closest, player):
         if isinstance(closest, Enemy):
             if closest.alive:
                 screen.blit(attack_label, (closest.x + closest.width, closest.y - closest.height))
             else:
                 screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
-        else:
+        elif closest:
             screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
         if interact_E:
             closest.interact(player)
     if inventory:
         print(player.items)
-    if room:
-        if room.out_of(player):
-            room.correct(player)
+    if player.location:
+        if player.location.out_of(player):
+            player.location.correct(player)
     pygame.display.update()
