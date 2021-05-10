@@ -8,6 +8,12 @@ pygame.init()
 screen_width = 1000
 screen_height = 800
 screen = pygame.display.set_mode([screen_width, screen_height])
+
+inventory_width = 400
+inventory_height = 300
+inventory_x = screen_width // 2 - inventory_width // 2
+inventory_y = screen_height // 2 - inventory_height // 2
+
 pygame.display.set_caption("Game")
 fps = 60
 background = None
@@ -59,6 +65,94 @@ class ObjectOnMap:
         self.y += delta_y
 
 
+class Looting:
+    def __init__(self, items, enemy):
+        self.rect = pygame.Rect(
+            inventory_x, inventory_y, inventory_width, inventory_height
+        )
+        self.items = items
+        self.player = player
+        self.enemy = enemy
+        self.current_item = 0
+
+    def update(self, key_event):
+        if key_event.key == pygame.K_DOWN:
+            if self.current_item + 1 == len(self.items):
+                self.current_item = 0
+            else:
+                self.current_item += 1
+        elif key_event.key == pygame.K_UP:
+            if self.current_item == 0:
+                self.current_item = len(self.items)-1
+            else:
+                self.current_item += -1
+        elif key_event.key == pygame.K_e and len(self.enemy.items)!=0:
+            player.give(self.items[self.current_item])
+            self.enemy.take(self.items[self.current_item])
+        elif key_event.key == pygame.K_r and len(self.enemy.items)!=0:
+            for i in self.items:
+                player.give(i)
+                self.enemy.take(i)
+
+    def draw(self):
+        pygame.draw.rect(screen, (172, 237, 182), self.rect)
+        item_rect = self.rect.copy()
+        item_rect.size = 150, 150
+        item_rect.x = self.rect.x + 15
+        item_rect.y = self.rect.y + 50
+        pygame.draw.rect(screen, (255, 0, 0), item_rect)
+        info = None
+        if len(self.items) == 0:
+            info = game_font.render("Empty", True, (255, 255, 255))
+            screen.blit(info, (item_rect.x + 165, item_rect.y + 5))
+        else:
+            info = self.items[self.current_item].get_info()
+            for i in range(len(info)):
+                screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i+1) * 12)))
+        screen.blit(game_font.render("E: pick one, R: pick all, Esc: leave", True, (255, 255, 255)), (self.rect.x + 15, self.rect.y + 280))
+
+
+class Inventory:
+    def __init__(self):
+        self.rect = pygame.Rect(
+            inventory_x, inventory_y, inventory_width, inventory_height
+        )
+        self.items = []
+        self.gold = 0
+        self.current_item = 0
+
+    def update(self, key_event):
+        if key_event.key == pygame.K_DOWN:
+            if self.current_item + 1 == len(self.items):
+                self.current_item = 0
+            else:
+                self.current_item += 1
+        elif key_event.key == pygame.K_UP:
+            if self.current_item == 0:
+                self.current_item = len(self.items)-1
+            else:
+                self.current_item += -1
+
+    def draw(self):
+        pygame.draw.rect(screen, (172, 237, 182), self.rect)
+        item_rect = self.rect.copy()
+        item_rect.size = 150, 150
+        item_rect.x = self.rect.x + 15
+        item_rect.y = self.rect.y + 50
+        pygame.draw.rect(screen, (255, 0, 0), item_rect)
+        gold_label = game_font.render("Gold: {}".format(self.gold), True, (255, 255, 255))
+        screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
+        info = None
+        if len(self.items) == 0:
+            info = game_font.render("Empty", True, (255, 255, 255))
+            screen.blit(info, (item_rect.x + 165, item_rect.y + 5))
+        else:
+            info = self.items[self.current_item].get_info()
+            for i in range(len(info)):
+                screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
+
+
+
 class VisibleOnMap(ObjectOnMap):
     def __init__(self, x, y, width, height, image):
         super().__init__(x, y, width, height)
@@ -81,6 +175,11 @@ class Item:
     def __repr__(self):
         return str(self)
 
+    def get_info(self):
+        lines = []
+        lines.append(game_font.render("{}".format(self.name), True, (255, 255, 255)))
+        lines.append(game_font.render("Value: {}".format(self.value), True, (255, 255, 255)))
+        return lines
 
 class Player(VisibleOnMap):
     def __init__(self, x, y, width, height, image, speed, loc):
@@ -92,9 +191,12 @@ class Player(VisibleOnMap):
         self.items = [Item(1, 30, "sword"), Item(1, 30, "shield")]
         self.evasion = 0
         self.location = loc
+        self.inventory = Inventory()
+        self.inventory.items = self.items
 
     def give(self, item):
         self.items.append(item)
+        self.inventory.items.append(item)
 
     def take(self, item):
         if self.have(item):
@@ -119,16 +221,18 @@ class Enemy(VisibleOnMap):
         self.max_health = self.health
         self.damage = 10
         self.alive = True
-        self.items = [Item(5, 30, "loot 3")]
+        self.items = [Item(5, 30, "loot 3"), Item(5, 30, "loot 4")]
+        self.loot = Looting(self.items, self)
 
     def interact(self, player):
         if self.alive:
             self.attack(player)
-        else:
-            while len(self.items) > 0:
-                temp = self.items[0]
-                self.take(temp)
-                player.give(temp)
+        #else:
+            # while len(self.items) > 0:
+            #     temp = self.items[0]
+            #     self.take(temp)
+            #     player.give(temp)
+
 
     def attack(self, player):
         print("Fight player({} hp) against enemy({} hp).".format(player.health, self.health))
@@ -404,6 +508,8 @@ down = False
 interact_E = False
 interact_R = False
 inventory = False
+loot_window = None
+looting = False
 opened = []
 game_font = pygame.font.SysFont("monospace", 15)
 interact_label = game_font.render("press E to interact", True, (255, 255, 255))
@@ -413,7 +519,12 @@ clock = pygame.time.Clock()
 while running:
     interact_E = False
     interact_R = False
-    inventory = False
+    if inventory:
+        down = False
+        up = False
+    if looting:
+        down = False
+        up = False
     # RGB = Red, Green, Blue
     screen.fill((25, 25, 25))
 
@@ -431,15 +542,37 @@ while running:
             if event.key == pygame.K_RIGHT:
                 right = True
             if event.key == pygame.K_UP:
-                up = True
+                if inventory:
+                    player.inventory.update(event)
+                elif looting:
+                    loot_window.update(event)
+                else:
+                    up = True
             if event.key == pygame.K_DOWN:
-                down = True
+                if inventory:
+                    player.inventory.update(event)
+                elif looting:
+                    loot_window.update(event)
+                else:
+                    down = True
             if event.key == pygame.K_e:
                 interact_E = True
+                if looting:
+                    loot_window.update(event)
             if event.key == pygame.K_r:
                 interact_R = True
+                if looting:
+                    loot_window.update(event)
             if event.key == pygame.K_i:
-                inventory = True
+                if inventory is False:
+                    inventory = True
+                else:
+                    inventory = False
+            if event.key == pygame.K_ESCAPE:
+                if inventory:
+                    inventory = False
+                if looting:
+                    looting = False
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
@@ -480,6 +613,10 @@ while running:
     for o in player.location.objects:
         o.draw()
     player.draw()
+    if inventory:
+        player.inventory.draw()
+    if looting:
+        loot_window.draw()
     dt = clock.tick(fps)
     player.move(dx * dt, dy * dt)
     for e in player.location.enemies:
@@ -504,10 +641,14 @@ while running:
                 screen.blit(attack_label, (closest.x + closest.width, closest.y - closest.height))
             else:
                 screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
+                looting = True
+                loot_window = closest.loot
         elif closest:
             screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
         if interact_E:
             closest.interact(player)
+
+
     if inventory:
         print(player.items)
     if player.location:
