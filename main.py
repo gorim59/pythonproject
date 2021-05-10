@@ -12,7 +12,7 @@ pygame.display.set_caption("Game")
 fps = 60
 background = None
 
-unused_shrine_image = None # wymagane przez default parametry
+unused_shrine_image = None  # wymagane przez default parametry
 unlit_campfire_image = None
 chestImage = None
 
@@ -26,6 +26,7 @@ class Room:
     def __init__(self, width, height):
         self.width = width
         self.height = height
+        self.objects = []
 
     def out_of(self, map_object):
         return (screen_width + map_object.width - self.width) / 2.0 > map_object.x or \
@@ -50,6 +51,7 @@ class ObjectOnMap:
         self.y = y
         self.width = width
         self.height = height
+        self.collisional = True
 
     def move(self, delta_x, delta_y):
         self.x += delta_x
@@ -63,16 +65,7 @@ class VisibleOnMap(ObjectOnMap):
 
     def draw(self):
         if self.image:
-            try:
-                screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
-            except:
-                print(self.x)
-                print(self.y)
-                print(self.width)
-                print(self.height)
-                print(self.image)
-                print(self.type)
-                exit()
+            screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
 
 
 class Item:
@@ -87,16 +80,16 @@ class Item:
     def __repr__(self):
         return str(self)
 
+
 class Player(VisibleOnMap):
     def __init__(self, x, y, width, height, image, speed):
         super().__init__(x, y, width, height, image)
         self.speed = speed
         self.health = 100
-        self.max_health = self.health ###
+        self.max_health = self.health  ###
         self.damage = 10
         self.items = [Item(1, 30, "sword"), Item(1, 30, "shield")]
         self.evasion = 0
-
 
     def give(self, item):
         self.items.append(item)
@@ -107,10 +100,13 @@ class Player(VisibleOnMap):
 
     def have(self, item):
         return item in self.items
+
     def draw(self):
         super().draw()
-        pygame.draw.rect(screen, (255, 0, 0), (0 + 10, screen_height - 20, 100, 15))
-        pygame.draw.rect(screen, (0, 128, 0), (0 + 10, screen_height - 20, 100 - (50 * (1 - (self.health / self.max_health))), 15))
+        pygame.draw.rect(screen, (255, 0, 0),
+                         (0 + 10, screen_height - 20, 100, 15))
+        pygame.draw.rect(screen, (0, 128, 0),
+                         (0 + 10, screen_height - 20, int(100 - (50 * (1 - (self.health / self.max_health)))), 15))
 
 
 class Enemy(VisibleOnMap):
@@ -148,13 +144,16 @@ class Enemy(VisibleOnMap):
     def kill(self):
         print("Dead.")
         self.alive = False
+        self.collisional = False
 
     def draw(self):
         if self.image:
             if self.alive:
-                if self.health<self.max_health:
-                    pygame.draw.rect(screen, (255, 0, 0), (self.x -25, self.y - self.height, 50, 5))
-                    pygame.draw.rect(screen, (0, 128, 0), (self.x -25, self.y - self.height, 50-(50*(1-(self.health/self.max_health))), 5))
+                if self.health < self.max_health:
+                    pygame.draw.rect(screen, (255, 0, 0),
+                                     (self.x - 25, self.y - self.height, 50, 5))
+                    pygame.draw.rect(screen, (0, 128, 0),
+                                     (self.x - 25, self.y - self.height, int(50 - (50 * (1 - (self.health / self.max_health)))), 5))
                 screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
             else:
                 screen.blit(self.dead_image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
@@ -171,7 +170,7 @@ class Enemy(VisibleOnMap):
 
 
 class Chest(VisibleOnMap):
-    def __init__(self, x, y, width = 32, height = 20, image = chestImage):
+    def __init__(self, x, y, width=32, height=20, image=chestImage):
         super().__init__(x, y, width, height, image)
         self.open = False
         self.opener = None
@@ -211,7 +210,7 @@ class Chest(VisibleOnMap):
 
 
 class Campfire(VisibleOnMap):
-    def __init__(self, x, y, width = 32, height = 10, image = unlit_campfire_image):
+    def __init__(self, x, y, width=32, height=10, image=unlit_campfire_image):
         super().__init__(x, y, width, height, image)
         self.lit = False
 
@@ -223,33 +222,33 @@ class Campfire(VisibleOnMap):
             closest.image = lit_campfire_image
             closest.lit = True
 
-class Shrine_Types(Enum):
+
+class ShrineTypes(Enum):
     HEALING = 1
     HASTE = 2
-    DAMMAGE = 3
+    DAMAGE = 3
     EVASION = 4
 
+
 class Shrine(VisibleOnMap):
-    def __init__(self, x, y, type, width = 32, height =32, image = unused_shrine_image):
+    def __init__(self, x, y, type, width=32, height=32, image=unused_shrine_image):
         super().__init__(x, y, width, height, image)
         self.used = False
         self.type = type
 
-    def bonus(self, player):
-        if self.type == Shrine_Types.HASTE:
-            player.speed += 0.02
+    def bonus(self, receiving_player):
+        if self.type == ShrineTypes.HASTE:
+            receiving_player.speed += 0.02
             print("Movement speed increased")
-        elif self.type == Shrine_Types.HEALTH:
-            player.max_health += 20
+        elif self.type == ShrineTypes.HEALTH:
+            receiving_player.max_health += 20
             print("Maximum health increased")
-        elif self.type == Shrine_Types.DAMMAGE:
-            player.damage += 2
+        elif self.type == ShrineTypes.DAMAGE:
+            receiving_player.damage += 2
             print("Damage increased")
-        elif self.type == Shrine_Types.EVASION:
-            player.damage += 2
+        elif self.type == ShrineTypes.EVASION:
+            receiving_player.damage += 2
             print("EVASION increased")
-
-
 
     def interact(self, player):
         if self.used is False:
@@ -258,6 +257,12 @@ class Shrine(VisibleOnMap):
             self.bonus(player)
         elif self.used is True:
             print("Shrine was drained out of power")
+
+
+class Door(VisibleOnMap):
+    def __init__(self, x, y, width=32, height=32, image=None):
+        super().__init__(x, y, width, height, image)
+        self.collisional = False
 
 
 def X_collision(A, B):
@@ -281,12 +286,8 @@ def Y_collision(A, B):
 
 
 def is_collision(A, B):
-    if isinstance(A, Enemy):
-        if not A.alive:
-            return False
-    if isinstance(B, Enemy):
-        if not B.alive:
-            return False
+    if (not B.B.is_colidable()()) or (not A.is_colidable()):
+        return False
     if abs(X_collision(A, B)) > 0 and abs(Y_collision(A, B)) > 0:
         print(X_collision(A, B))
         print(Y_collision(A, B))
@@ -296,8 +297,8 @@ def is_collision(A, B):
 
 
 def correct_collision(A, B):
-    x_dif=X_collision(A, B)
-    y_dif=Y_collision(A, B)
+    x_dif = X_collision(A, B)
+    y_dif = Y_collision(A, B)
     print(X_collision(A, B))
     print(Y_collision(A, B))
     print("from ({}, {}),({}, {})".format(A.x, A.y, B.x, B.y))
@@ -367,8 +368,8 @@ try:
 except OSError:
     print('No object image')
 
-
-objects = [Chest(450, 300, 32, 20, chestImage), Campfire(500, 300, 32, 10, unlit_campfire_image), Shrine(x=600, y=300, type=Shrine_Types.HASTE, width=32, height=32, image=unused_shrine_image)]
+objects = [Chest(450, 300, 32, 20, chestImage), Campfire(500, 300, 32, 10, unlit_campfire_image),
+           Shrine(x=600, y=300, type=ShrineTypes.HASTE, width=32, height=32, image=unused_shrine_image)]
 
 # Game Loop
 running = True
