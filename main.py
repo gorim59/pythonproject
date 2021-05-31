@@ -16,16 +16,27 @@ inventory_y = screen_height // 2 - inventory_height // 2
 
 pygame.display.set_caption("Game")
 fps = 60
-background = None
 
-unused_shrine_image = None  # wymagane przez default parametry
-unlit_campfire_image = None
-chestImage = None
 
-try:
-    background = pygame.image.load('background.png')
-except OSError:
-    print("No background")
+def load_image(name):
+    try:
+        return pygame.image.load(name)
+    except OSError:
+        print("No", name)
+        return None
+
+
+looting = False
+playerImg = load_image('player.png')
+enemyImg = load_image('enemy.png')
+dead_imageImg = load_image('dead enemy.png')
+door_image = load_image('door.png')
+chestImage = load_image('chest.png')
+unlit_campfire_image = load_image('unlit_campfire.png')
+lit_campfire_image = load_image('lit_campfire.png')
+used_shrine_image = load_image('used_shrine_image.png')
+unused_shrine_image = load_image('unused_shrine_image.png')
+background = load_image('background.png')
 
 
 class Room:
@@ -83,13 +94,13 @@ class Looting:
                 self.current_item += 1
         elif key_event.key == pygame.K_UP:
             if self.current_item == 0:
-                self.current_item = len(self.items)-1
+                self.current_item = len(self.items) - 1
             else:
                 self.current_item += -1
-        elif key_event.key == pygame.K_e and len(self.enemy.items)!=0:
+        elif key_event.key == pygame.K_e and len(self.enemy.items) != 0:
             player.give(self.items[self.current_item])
             self.enemy.take(self.items[self.current_item])
-        elif key_event.key == pygame.K_r and len(self.enemy.items)!=0:
+        elif key_event.key == pygame.K_r and len(self.enemy.items) != 0:
             for i in self.items:
                 player.give(i)
                 self.enemy.take(i)
@@ -108,8 +119,9 @@ class Looting:
         else:
             info = self.items[self.current_item].get_info()
             for i in range(len(info)):
-                screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i+1) * 12)))
-        screen.blit(game_font.render("E: pick one, R: pick all, Esc: leave", True, (255, 255, 255)), (self.rect.x + 15, self.rect.y + 280))
+                screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
+        screen.blit(game_font.render("E: pick one, R: pick all, Esc: leave", True, (255, 255, 255)),
+                    (self.rect.x + 15, self.rect.y + 280))
 
 
 class Inventory:
@@ -129,7 +141,7 @@ class Inventory:
                 self.current_item += 1
         elif key_event.key == pygame.K_UP:
             if self.current_item == 0:
-                self.current_item = len(self.items)-1
+                self.current_item = len(self.items) - 1
             else:
                 self.current_item += -1
 
@@ -150,7 +162,6 @@ class Inventory:
             info = self.items[self.current_item].get_info()
             for i in range(len(info)):
                 screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
-
 
 
 class VisibleOnMap(ObjectOnMap):
@@ -180,6 +191,7 @@ class Item:
         lines.append(game_font.render("{}".format(self.name), True, (255, 255, 255)))
         lines.append(game_font.render("Value: {}".format(self.value), True, (255, 255, 255)))
         return lines
+
 
 class Player(VisibleOnMap):
     def __init__(self, x, y, width, height, image, speed, loc):
@@ -214,8 +226,8 @@ class Player(VisibleOnMap):
 
 
 class Enemy(VisibleOnMap):
-    def __init__(self, x, y, width, height, image, dead_image):
-        super().__init__(x, y, width, height, image)
+    def __init__(self, x, y, width, height, alive_image, dead_image):
+        super().__init__(x, y, width, height, alive_image)
         self.dead_image = dead_image
         self.health = 25
         self.max_health = self.health
@@ -223,34 +235,41 @@ class Enemy(VisibleOnMap):
         self.alive = True
         self.items = [Item(5, 30, "loot 3"), Item(5, 30, "loot 4")]
         self.loot = Looting(self.items, self)
+        self.patrol_instructions = None
+        self.speed = 0.0
 
-    def interact(self, player):
+    def interact(self, curr_player):
         if self.alive:
-            self.attack(player)
-        #else:
-            # while len(self.items) > 0:
-            #     temp = self.items[0]
-            #     self.take(temp)
-            #     player.give(temp)
+            self.get_attacked(curr_player)
+        return not self.alive
 
-
-    def attack(self, player):
-        print("Fight player({} hp) against enemy({} hp).".format(player.health, self.health))
-        self.health -= player.damage
+    def get_attacked(self, curr_player):
+        print("Fight player({} hp) against enemy({} hp).".format(curr_player.health, self.health))
+        self.health -= curr_player.damage
         if self.health <= 0:
             self.kill()
             print(self.items)
             self.health = 0
-        elif random.randrange(1, 100) <= player.evasion:
+        else:
+            self.attack(curr_player)
+        print("After fight player({} hp) against enemy({} hp).".format(curr_player.health, self.health))
+
+    def attack(self, curr_player):
+        if random.randrange(1, 100) <= curr_player.evasion:
             print("Hit evaded!")
         else:
-            player.health -= self.damage
-        print("After fight player({} hp) against enemy({} hp).".format(player.health, self.health))
+            curr_player.health -= self.damage
 
     def kill(self):
         print("Dead.")
+        self.image, self.dead_image = self.dead_image, self.image
         self.alive = False
         self.collisional = False
+
+    def patrol(self, time):
+        if self.patrol_instructions is not None:
+            if time * self.speed:
+                pass
 
     def draw(self):
         if self.image:
@@ -259,10 +278,12 @@ class Enemy(VisibleOnMap):
                     pygame.draw.rect(screen, (255, 0, 0),
                                      (self.x - 25, self.y - self.height, 50, 5))
                     pygame.draw.rect(screen, (0, 128, 0),
-                                     (self.x - 25, self.y - self.height, int(50 - (50 * (1 - (self.health / self.max_health)))), 5))
-                screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
-            else:
-                screen.blit(self.dead_image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
+                                     (self.x - 25, self.y - self.height,
+                                      int(50 - (50 * (1 - (self.health / self.max_health)))), 5))
+        super().draw()
+        #     screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
+        # else:
+        #     screen.blit(self.dead_image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
 
     def give(self, item):
         self.items.append(item)
@@ -450,55 +471,63 @@ def closest_object(A):
 room1 = Room(600, 600)
 room2 = Room(600, 600)
 
-playerImg = None
-
-try:
-    playerImg = pygame.image.load('player.png')
-except OSError:
-    print("No player")
 player = Player(screen_width / 2.0, screen_height / 2.0, 32, 32, playerImg, 0.1, room1)
 
-# Enemies
-enemyImg = None
-dead_imageImg = None
-
-try:
-    enemyImg = pygame.image.load('enemy.png')
-except OSError:
-    print("No enemy")
-try:
-    dead_imageImg = pygame.image.load('dead enemy.png')
-except OSError:
-    print("No dead enemy")
 room1.enemies = [Enemy(300, 300, 16, 16, enemyImg, dead_imageImg)]
-
-chestImage = None
-lit_campfire_image = None
-unlit_campfire_image = None
-used_shrine_image = None
-unused_shrine_image = None
-door_image = None
-try:
-    door_image = pygame.image.load('door.png')
-    chestImage = pygame.image.load('chest.png')
-    unlit_campfire_image = pygame.image.load('unlit_campfire.png')
-    lit_campfire_image = pygame.image.load('lit_campfire.png')
-    used_shrine_image = pygame.image.load('used_shrine_image.png')
-    unused_shrine_image = pygame.image.load('unused_shrine_image.png')
-except OSError:
-    print('No object image')
 
 room1.objects = [Chest(450, 300, 32, 20, chestImage),
                  Campfire(500, 300, 32, 10, unlit_campfire_image),
                  Shrine(x=600, y=300, type=ShrineTypes.HASTE, width=32, height=32, image=unused_shrine_image),
                  Door((screen_width + 32 - room1.width) / 2.0, screen_height / 2.0, 32, 32, room2, door_image)]
+
 room2.objects = [Door((screen_width - 32 + room2.width) / 2.0, screen_height / 2.0, 32, 32, room1, door_image)]
+moving_enemy = Enemy(300, 300, 16, 16, enemyImg, dead_imageImg)
+moving_enemy.patrol_instructions = [(0, 0), (0, 0)]
+moving_enemy.speed = 0.05
+
+
+# try:
+#     playerImg = pygame.image.load('player.png')
+# except OSError:
+#     print("No player")
+
+# Enemies
+# enemyImg = None
+# dead_imageImg = None
+#
+# try:
+#     enemyImg = pygame.image.load('enemy.png')
+# except OSError:
+#     print("No enemy")
+# try:
+#     dead_imageImg = pygame.image.load('dead enemy.png')
+# except OSError:
+#     print("No dead enemy")
+
+# chestImage = None
+# lit_campfire_image = None
+# unlit_campfire_image = None
+# used_shrine_image = None
+# unused_shrine_image = None
+# door_image = None
+# try:
+#     door_image = pygame.image.load('door.png')
+#     chestImage = pygame.image.load('chest.png')
+#     unlit_campfire_image = pygame.image.load('unlit_campfire.png')
+#     lit_campfire_image = pygame.image.load('lit_campfire.png')
+#     used_shrine_image = pygame.image.load('used_shrine_image.png')
+#     unused_shrine_image = pygame.image.load('unused_shrine_image.png')
+# except OSError:
+#     print('No object image')
+
 
 def out_of(self, map_object):
     return (screen_width + map_object.width - self.width) / 2.0 > map_object.x or \
            (screen_width - map_object.width + self.width) / 2.0 < map_object.x or \
            (screen_height + map_object.height - self.height) / 2.0 > map_object.y or \
            (screen_height - map_object.height + self.height) / 2.0 < map_object.y
+
+
 # Game Loop
 running = True
 left = False
@@ -509,8 +538,6 @@ interact_E = False
 interact_R = False
 inventory = False
 loot_window = None
-looting = False
-opened = []
 game_font = pygame.font.SysFont("monospace", 15)
 interact_label = game_font.render("press E to interact", True, (255, 255, 255))
 attack_label = game_font.render("press E to atack", True, (255, 255, 255))
@@ -519,12 +546,6 @@ clock = pygame.time.Clock()
 while running:
     interact_E = False
     interact_R = False
-    if inventory:
-        down = False
-        up = False
-    if looting:
-        down = False
-        up = False
     # RGB = Red, Green, Blue
     screen.fill((25, 25, 25))
 
@@ -584,6 +605,12 @@ while running:
             if event.key == pygame.K_DOWN:
                 down = False
 
+    if inventory or looting:
+        down = False
+        up = False
+        left = False
+        right = False
+
     horizontal_move = left != right
     vertical_move = up != down
     dx = 0
@@ -617,37 +644,33 @@ while running:
         player.inventory.draw()
     if looting:
         loot_window.draw()
+    # moving player
     dt = clock.tick(fps)
     player.move(dx * dt, dy * dt)
     for e in player.location.enemies:
         if is_collision(e, player):
-            # print(str(player.x)+" "+str(player.y)+" "+str(e.x)+" "+str(e.y))
             correct_collision(e, player)
-            # player.move(-dx * dt, -dy * dt)
     for o in player.location.objects:
         if is_collision(o, player):
             correct_collision(o, player)
-            # player.move(-dx * dt, -dy * dt)
     for o in player.location.objects:
         if isinstance(o, Chest):
             if o.open:
                 if not is_nearby(o, player):
                     o.close_chest()
-
+    # interacting
     closest = closest_object(player.location.objects + player.location.enemies)
     if is_nearby(closest, player):
         if isinstance(closest, Enemy):
+            loot_window = closest.loot
             if closest.alive:
                 screen.blit(attack_label, (closest.x + closest.width, closest.y - closest.height))
             else:
                 screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
-                looting = True
-                loot_window = closest.loot
         elif closest:
             screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
         if interact_E:
-            closest.interact(player)
-
+            looting = closest.interact(player) or False
 
     if inventory:
         print(player.items)
