@@ -26,7 +26,6 @@ def load_image(name):
         return None
 
 
-
 playerImg = load_image('player.png')
 enemyImg = load_image('enemy.png')
 dead_imageImg = load_image('dead enemy.png')
@@ -167,7 +166,7 @@ class Inventory:
 
 
 class VisibleOnMap(ObjectOnMap):
-    def __init__(self, x, y, width, height, image, correction = (0,0)):
+    def __init__(self, x, y, width, height, image, correction=(0, 0)):
         super().__init__(x, y, width, height)
         self.image = image
         self.correction = correction
@@ -180,8 +179,8 @@ class VisibleOnMap(ObjectOnMap):
                          int(self.y + self.correction[1] - (self.height / 2))))
 
     def set_correction(self, loc):
-        self.correction = ((screen_width - loc.width)//2,
-                           (screen_height - loc.height)//2)
+        self.correction = ((screen_width - loc.width) // 2,
+                           (screen_height - loc.height) // 2)
 
 
 class Item:
@@ -288,8 +287,8 @@ class Enemy(VisibleOnMap):
                 self.move(destination[0] - self.x, destination[1] - self.y)
                 self.patrol_instructions.append(self.patrol_instructions.pop(0))
             else:
-                px = abs(0.0 + destination[0] - self.x)/(abs(destination[1] - self.y) + abs(destination[0] - self.x))
-                py = abs(0.0 + destination[1] - self.y)/(abs(destination[1] - self.y) + abs(destination[0] - self.x))
+                px = abs(0.0 + destination[0] - self.x) / (abs(destination[1] - self.y) + abs(destination[0] - self.x))
+                py = abs(0.0 + destination[1] - self.y) / (abs(destination[1] - self.y) + abs(destination[0] - self.x))
                 sx = self.speed * px * math.copysign(1, destination[0] - self.x)
                 sy = self.speed * py * math.copysign(1, destination[1] - self.y)
                 self.move(sx * time, sy * time)
@@ -687,7 +686,7 @@ while running:
     player.move(dx * dt, dy * dt)
     for e in player.location.enemies:
         e.patrol(dt)
-        e.stun = max(e.stun-dt, 0)
+        e.stun = max(e.stun - dt, 0)
         if is_collision(e, player):
             correct_collision(e, player)
             e.attack(player)
