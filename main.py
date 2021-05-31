@@ -26,7 +26,7 @@ def load_image(name):
         return None
 
 
-looting = False
+
 playerImg = load_image('player.png')
 enemyImg = load_image('enemy.png')
 dead_imageImg = load_image('dead enemy.png')
@@ -100,10 +100,12 @@ class Looting:
         elif key_event.key == pygame.K_e and len(self.enemy.items) != 0:
             player.give(self.items[self.current_item])
             self.enemy.take(self.items[self.current_item])
+            if self.current_item == len(self.enemy.items):
+                self.current_item -= 1
         elif key_event.key == pygame.K_r and len(self.enemy.items) != 0:
-            for i in self.items:
-                player.give(i)
-                self.enemy.take(i)
+            for i in range(len(self.items)):
+                player.give(self.items[0])
+                self.enemy.take(self.items[0])
 
     def draw(self):
         pygame.draw.rect(screen, (172, 237, 182), self.rect)
@@ -125,11 +127,11 @@ class Looting:
 
 
 class Inventory:
-    def __init__(self):
+    def __init__(self, items):
         self.rect = pygame.Rect(
             inventory_x, inventory_y, inventory_width, inventory_height
         )
-        self.items = []
+        self.items = items
         self.gold = 0
         self.current_item = 0
 
@@ -211,12 +213,10 @@ class Player(VisibleOnMap):
         self.items = [Item(1, 30, "sword"), Item(1, 30, "shield")]
         self.evasion = 0
         self.location = loc
-        self.inventory = Inventory()
-        self.inventory.items = self.items
+        self.inventory = Inventory(self.items)
 
     def give(self, item):
         self.items.append(item)
-        self.inventory.items.append(item)
 
     def take(self, item):
         if self.have(item):
@@ -575,6 +575,7 @@ interact_E = False
 interact_R = False
 inventory = False
 loot_window = None
+looting = False
 game_font = pygame.font.SysFont("monospace", 15)
 interact_label = game_font.render("press E to interact", True, (255, 255, 255))
 attack_label = game_font.render("press E to atack", True, (255, 255, 255))
@@ -707,7 +708,7 @@ while running:
                 screen.blit(attack_label,
                             (closest.correction[0] + closest.x + closest.width,
                              closest.correction[1] + closest.y - closest.height))
-            else:
+            elif not closest.alive and not looting:
                 screen.blit(interact_label,
                             (closest.correction[0] + closest.x + closest.width,
                              closest.correction[1] + closest.y - closest.height))
