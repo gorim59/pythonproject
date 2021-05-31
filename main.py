@@ -174,8 +174,8 @@ class VisibleOnMap(ObjectOnMap):
         if self.image:
             # screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
             screen.blit(self.image,
-                        (int(self.x + self.correction[0] + (self.width / 2)),
-                         int(self.y + self.correction[1] + (self.height / 2))))
+                        (int(self.x + self.correction[0] - (self.width / 2)),
+                         int(self.y + self.correction[1] - (self.height / 2))))
 
     def set_correction(self, loc):
         self.correction = ((screen_width - loc.width)//2,
@@ -505,9 +505,9 @@ room1.enemies = [Enemy(100, 200, 16, 16, enemyImg, dead_imageImg)]
 room1.objects = [Chest(250, 200, 32, 20, chestImage),
                  Campfire(300, 200, 32, 10, unlit_campfire_image),
                  Shrine(x=200, y=200, type=ShrineTypes.HASTE, width=32, height=32, image=unused_shrine_image),
-                 Door(32 / 2.0, (room1.width - 16) / 2.0, 16, 16, room2, door_image)]
+                 Door(16 / 2.0, room1.height / 2.0, 16, 16, room2, door_image)]
 
-room2.objects = [Door(room2.width-16, (room2.height - 16) / 2.0, 16, 16, room1, door_image)]
+room2.objects = [Door(room2.width - 16 / 2.0, room2.height / 2.0, 16, 16, room1, door_image)]
 moving_enemy = Enemy(300, 300, 16, 16, enemyImg, dead_imageImg)
 moving_enemy.patrol_instructions = [(300, 300), (300, 400), (400, 400), (400, 300)]
 moving_enemy.speed = 0.05
