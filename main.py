@@ -47,20 +47,20 @@ class Room:
         self.enemies = []
 
     def out_of(self, map_object):
-        return (screen_width + map_object.width - self.width) / 2.0 > map_object.x or \
-               (screen_width - map_object.width + self.width) / 2.0 < map_object.x or \
-               (screen_height + map_object.height - self.height) / 2.0 > map_object.y or \
-               (screen_height - map_object.height + self.height) / 2.0 < map_object.y
+        return map_object.width / 2.0 > map_object.x or \
+               map_object.width / 2.0 > self.width - map_object.x or \
+               map_object.height / 2.0 > map_object.y or \
+               map_object.height / 2.0 > self.height - map_object.y
 
     def correct(self, map_object):
-        if (screen_width + map_object.width - self.width) / 2.0 > map_object.x:
-            map_object.move((screen_width + map_object.width - self.width) / 2.0 - map_object.x, 0)
-        if (screen_width - map_object.width + self.width) / 2.0 < map_object.x:
-            map_object.move((screen_width - map_object.width + self.width) / 2.0 - map_object.x, 0)
-        if (screen_height + map_object.height - self.height) / 2.0 > map_object.y:
-            map_object.move(0, (screen_height + map_object.height - self.height) / 2.0 - map_object.y)
-        if (screen_height - map_object.height + self.height) / 2.0 < map_object.y:
-            map_object.move(0, (screen_height - map_object.height + self.height) / 2.0 - map_object.y)
+        if map_object.width / 2.0 > map_object.x:
+            map_object.move(map_object.width / 2.0 - map_object.x, 0)
+        if map_object.width / 2.0 > self.width - map_object.x:
+            map_object.move(-map_object.width / 2.0 - map_object.x + self.width, 0)
+        if map_object.height / 2.0 > map_object.y:
+            map_object.move(0, map_object.height / 2.0 - map_object.y)
+        if map_object.height / 2.0 > self.height - map_object.y:
+            map_object.move(0, -map_object.height / 2.0 - map_object.y + self.height)
 
 
 class ObjectOnMap:
@@ -165,13 +165,21 @@ class Inventory:
 
 
 class VisibleOnMap(ObjectOnMap):
-    def __init__(self, x, y, width, height, image):
+    def __init__(self, x, y, width, height, image, correction = (0,0)):
         super().__init__(x, y, width, height)
         self.image = image
+        self.correction = correction
 
     def draw(self):
         if self.image:
-            screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
+            # screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
+            screen.blit(self.image,
+                        (int(self.x + self.correction[0] + (self.width / 2)),
+                         int(self.y + self.correction[1] + (self.height / 2))))
+
+    def set_correction(self, loc):
+        self.correction = ((screen_width - loc.width)//2,
+                           (screen_height - loc.height)//2)
 
 
 class Item:
@@ -237,6 +245,7 @@ class Enemy(VisibleOnMap):
         self.loot = Looting(self.items, self)
         self.patrol_instructions = None
         self.speed = 0.0
+        self.stun = 0
 
     def interact(self, curr_player):
         if self.alive:
@@ -251,14 +260,18 @@ class Enemy(VisibleOnMap):
             print(self.items)
             self.health = 0
         else:
+            self.stun = 0
             self.attack(curr_player)
         print("After fight player({} hp) against enemy({} hp).".format(curr_player.health, self.health))
 
     def attack(self, curr_player):
+        if self.stun > 0:
+            return
         if random.randrange(1, 100) <= curr_player.evasion:
             print("Hit evaded!")
         else:
             curr_player.health -= self.damage
+        self.stun = 2000
 
     def kill(self):
         print("Dead.")
@@ -267,18 +280,30 @@ class Enemy(VisibleOnMap):
         self.collisional = False
 
     def patrol(self, time):
-        if self.patrol_instructions is not None:
-            if time * self.speed:
-                pass
+        if self.patrol_instructions is not None and self.alive:
+            if self.stun > 0:
+                return
+            destination = self.patrol_instructions[0]
+            if (time * self.speed) ** 2 > (self.x - destination[0]) ** 2 + (self.y - destination[1]) ** 2:
+                self.move(destination[0] - self.x, destination[1] - self.y)
+                self.patrol_instructions.append(self.patrol_instructions.pop(0))
+            else:
+                px = abs(0.0 + destination[0] - self.x)/(abs(destination[1] - self.y) + abs(destination[0] - self.x))
+                py = abs(0.0 + destination[1] - self.y)/(abs(destination[1] - self.y) + abs(destination[0] - self.x))
+                sx = self.speed * px * math.copysign(1, destination[0] - self.x)
+                sy = self.speed * py * math.copysign(1, destination[1] - self.y)
+                self.move(sx * time, sy * time)
 
     def draw(self):
         if self.image:
             if self.alive:
                 if self.health < self.max_health:
                     pygame.draw.rect(screen, (255, 0, 0),
-                                     (self.x - 25, self.y - self.height, 50, 5))
+                                     (self.correction[0] + self.x - 25,
+                                      self.correction[1] + self.y - self.height, 50, 5))
                     pygame.draw.rect(screen, (0, 128, 0),
-                                     (self.x - 25, self.y - self.height,
+                                     (self.correction[0] + self.x - 25,
+                                      self.correction[1] + self.y - self.height,
                                       int(50 - (50 * (1 - (self.health / self.max_health)))), 5))
         super().draw()
         #     screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
@@ -401,6 +426,7 @@ class Door(VisibleOnMap):
                     opening_player.x = objects.x
                     opening_player.y = objects.y
         opening_player.location = self.direction
+        opening_player.set_correction(self.direction)
 
 
 def X_collision(A, B):
@@ -471,19 +497,30 @@ def closest_object(A):
 room1 = Room(600, 600)
 room2 = Room(600, 600)
 
-player = Player(screen_width / 2.0, screen_height / 2.0, 32, 32, playerImg, 0.1, room1)
+player = Player(300, 300, 32, 32, playerImg, 0.1, room1)
+player.set_correction(player.location)
 
-room1.enemies = [Enemy(300, 300, 16, 16, enemyImg, dead_imageImg)]
+room1.enemies = [Enemy(100, 200, 16, 16, enemyImg, dead_imageImg)]
 
-room1.objects = [Chest(450, 300, 32, 20, chestImage),
-                 Campfire(500, 300, 32, 10, unlit_campfire_image),
-                 Shrine(x=600, y=300, type=ShrineTypes.HASTE, width=32, height=32, image=unused_shrine_image),
-                 Door((screen_width + 32 - room1.width) / 2.0, screen_height / 2.0, 32, 32, room2, door_image)]
+room1.objects = [Chest(250, 200, 32, 20, chestImage),
+                 Campfire(300, 200, 32, 10, unlit_campfire_image),
+                 Shrine(x=200, y=200, type=ShrineTypes.HASTE, width=32, height=32, image=unused_shrine_image),
+                 Door(32 / 2.0, (room1.width - 16) / 2.0, 16, 16, room2, door_image)]
 
-room2.objects = [Door((screen_width - 32 + room2.width) / 2.0, screen_height / 2.0, 32, 32, room1, door_image)]
+room2.objects = [Door(room2.width-16, (room2.height - 16) / 2.0, 16, 16, room1, door_image)]
 moving_enemy = Enemy(300, 300, 16, 16, enemyImg, dead_imageImg)
-moving_enemy.patrol_instructions = [(0, 0), (0, 0)]
+moving_enemy.patrol_instructions = [(300, 300), (300, 400), (400, 400), (400, 300)]
 moving_enemy.speed = 0.05
+room2.enemies = [moving_enemy]
+
+for o in room1.objects:
+    o.set_correction(room1)
+for e in room1.enemies:
+    e.set_correction(room1)
+for o in room2.objects:
+    o.set_correction(room1)
+for e in room2.enemies:
+    e.set_correction(room1)
 
 
 # try:
@@ -648,8 +685,11 @@ while running:
     dt = clock.tick(fps)
     player.move(dx * dt, dy * dt)
     for e in player.location.enemies:
+        e.patrol(dt)
+        e.stun = max(e.stun-dt, 0)
         if is_collision(e, player):
             correct_collision(e, player)
+            e.attack(player)
     for o in player.location.objects:
         if is_collision(o, player):
             correct_collision(o, player)
@@ -664,11 +704,17 @@ while running:
         if isinstance(closest, Enemy):
             loot_window = closest.loot
             if closest.alive:
-                screen.blit(attack_label, (closest.x + closest.width, closest.y - closest.height))
+                screen.blit(attack_label,
+                            (closest.correction[0] + closest.x + closest.width,
+                             closest.correction[1] + closest.y - closest.height))
             else:
-                screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
+                screen.blit(interact_label,
+                            (closest.correction[0] + closest.x + closest.width,
+                             closest.correction[1] + closest.y - closest.height))
         elif closest:
-            screen.blit(interact_label, (closest.x + closest.width, closest.y - closest.height))
+            screen.blit(interact_label,
+                        (closest.correction[0] + closest.x + closest.width,
+                         closest.correction[1] + closest.y - closest.height))
         if interact_E:
             looting = closest.interact(player) or False
 
