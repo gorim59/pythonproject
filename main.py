@@ -11,6 +11,7 @@ screen = pygame.display.set_mode([screen_width, screen_height])
 
 inventory_width = 400
 inventory_height = 300
+shopkeepers_cut = 0.5
 inventory_x = screen_width // 2 - inventory_width // 2
 inventory_y = screen_height // 2 - inventory_height // 2
 
@@ -107,18 +108,14 @@ class Shopping:
                 self.shopkeeper.take(self.items[self.current_item])
                 player.take_gold(value)
                 self.purchased = True
+                self.not_enough_money = False
                 if self.current_item == len(self.shopkeeper.items):
                     self.current_item -= 1
             else:
-                poor_label = game_font.render("You don't have enough gold to buy this item!", True,
-                                                  (255, 255, 255))
-                screen.blit(poor_label, (self.rect.x + 15, self.rect.y + 5))
-            # player.give(self.items[self.current_item])
-            # self.shopkeeper.take(self.items[self.current_item])
-            # if self.current_item == len(self.shopkeeper.items):
-            #     self.current_item -= 1
+                self.purchased = False
+                self.not_enough_money = True
         elif key_event.key == pygame.K_r and len(self.shopkeeper.items) != 0:
-            pass
+            self.shopkeeper.type = ShopTypes.SELL
            # for i in range(len(self.items)):
            #     player.give(self.items[0])
            #     self.shopkeeper(self.items[0])
@@ -134,7 +131,13 @@ class Shopping:
         if self.purchased:
             purchase_label = game_font.render("You have purchase an item!", True,
                                               (255, 255, 255))
-            screen.blit(purchase_label, (self.rect.x + 15, self.rect.y + 5))
+            screen.blit(purchase_label, (self.rect.x + 15, self.rect.y + 20))
+        if self.not_enough_money:
+            poor_label = game_font.render("You can't afford this item!", True,
+                                              (255, 255, 255))
+            screen.blit(poor_label, (self.rect.x + 15, self.rect.y + 20))
+        gold_label = game_font.render("Your gold: {}".format(player.inventory.gold), True, (255, 255, 255))
+        screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
         if len(self.items) == 0:
             info = game_font.render("No items in the shop", True, (255, 255, 255))
             screen.blit(info, (item_rect.x + 165, item_rect.y + 5))
@@ -143,6 +146,64 @@ class Shopping:
             for i in range(len(info)):
                 screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
         screen.blit(game_font.render("E: buy one, R: switch to sell, Esc: leave", True, (255, 255, 255)),
+                    (self.rect.x + 15, self.rect.y + 280))
+
+
+class Selling:
+    def __init__(self, items, shopkeeper):
+        self.rect = pygame.Rect(
+            inventory_x, inventory_y, inventory_width, inventory_height
+        )
+        self.shopkeeper = shopkeeper
+        self.items = items
+        self.gold = 0
+        self.current_item = 0
+        self.sold = False
+
+    def update(self, key_event):
+        if key_event.key == pygame.K_DOWN:
+            if self.current_item + 1 == len(self.items):
+                self.current_item = 0
+            else:
+                self.current_item += 1
+        elif key_event.key == pygame.K_UP:
+            if self.current_item == 0:
+                self.current_item = len(self.items) - 1
+            else:
+                self.current_item += -1
+        elif key_event.key == pygame.K_e and len(self.shopkeeper.items) != 0:
+            value = self.items[self.current_item].value
+            player.take(self.items[self.current_item])
+            if self.current_item == len(self.items):
+                self.current_item -= 1
+            player.give_gold((int)(value*shopkeepers_cut))
+            self.sold = True
+        elif key_event.key == pygame.K_r and len(self.shopkeeper.items) != 0:
+            self.shopkeeper.type = ShopTypes.BUY
+            self.sold = False
+
+    def draw(self):
+        pygame.draw.rect(screen, (172, 237, 182), self.rect)
+        item_rect = self.rect.copy()
+        item_rect.size = 150, 150
+        item_rect.x = self.rect.x + 15
+        item_rect.y = self.rect.y + 50
+        pygame.draw.rect(screen, (255, 0, 0), item_rect)
+        info = None
+        if self.sold:
+            sold_label = game_font.render("You have sold an item!", True,
+                                              (255, 255, 255))
+            screen.blit(sold_label, (self.rect.x + 15, self.rect.y + 20))
+        gold_label = game_font.render("Your gold: {}".format(player.inventory.gold), True, (255, 255, 255))
+        screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
+        if len(self.items) == 0:
+            info = game_font.render("No items your inventory", True, (255, 255, 255))
+            screen.blit(info, (item_rect.x + 165, item_rect.y + 5))
+        else:
+            info = self.items[self.current_item].get_info()
+            for i in range(len(info)):
+                screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
+        screen.blit(game_font.render("E: sell one, R: switch to buy, Esc: leave", True, (255, 255, 255)),
                     (self.rect.x + 15, self.rect.y + 280))
 
 
@@ -200,6 +261,7 @@ class Looting:
     def take_gold(self):
         player.give_gold(self.enemy.gold)
         self.enemy.take_gold()
+
 
 class Inventory:
     def __init__(self, items):
@@ -473,11 +535,18 @@ class Campfire(VisibleOnMap):
             closest.lit = True
 
 
+class ShopTypes(Enum):
+    BUY = 1
+    SELL = 2
+
+
 class Shopkeeper(VisibleOnMap):
     def __init__(self, x, y, width=32, height=32, image=shopkeeper_image):
         super().__init__(x, y, width, height, image)
         self.items = [Item(3, 30, "loot 1"), Item(4, 30, "loot 2")]
         self.loot = Shopping(self.items, self)
+        self.sell = Selling(player.items, self)
+        self.type = ShopTypes.BUY
 
     def interact(self, player):
         return True
@@ -801,7 +870,7 @@ while running:
         player.inventory.draw()
     if looting:
         loot_window.draw()
-        if not isinstance(loot_window, Shopping):
+        if not isinstance(loot_window, Shopping) and not isinstance(loot_window, Selling):
             loot_window.take_gold()
     # moving player
     dt = clock.tick(fps)
@@ -840,8 +909,11 @@ while running:
                             (closest.correction[0] + closest.x + closest.width,
                              closest.correction[1] + closest.y - closest.height))
         elif isinstance(closest, Shopkeeper):
-            if not looting:
+            if closest.type == ShopTypes.BUY:
                 loot_window = closest.loot
+            elif closest.type == ShopTypes.SELL:
+                loot_window = closest.sell
+            if not looting:
                 screen.blit(interact_label,
                             (closest.correction[0] + closest.x + closest.width,
                              closest.correction[1] + closest.y - closest.height))
