@@ -27,7 +27,6 @@ def load_image(name):
         return None
 
 
-
 playerImg = load_image('player.png')
 enemyImg = load_image('enemy.png')
 dead_imageImg = load_image('dead enemy.png')
@@ -102,23 +101,27 @@ class Shopping:
             else:
                 self.current_item += -1
         elif key_event.key == pygame.K_e and len(self.shopkeeper.items) != 0:
-            value = self.items[self.current_item].value
-            if player.have_gold(value):
-                player.give(self.items[self.current_item])
-                self.shopkeeper.take(self.items[self.current_item])
-                player.take_gold(value)
-                self.purchased = True
-                self.not_enough_money = False
-                if self.current_item == len(self.shopkeeper.items):
-                    self.current_item -= 1
+            if len(self.items) != 0:
+                value = self.items[self.current_item].value
+                if player.have_gold(value):
+                    player.give(self.items[self.current_item])
+                    self.shopkeeper.take(self.items[self.current_item])
+                    player.take_gold(value)
+                    self.purchased = True
+                    self.not_enough_money = False
+                    if self.current_item == len(self.shopkeeper.items):
+                        self.current_item -= 1
+                else:
+                    self.purchased = False
+                    self.not_enough_money = True
             else:
                 self.purchased = False
-                self.not_enough_money = True
+                self.not_enough_money = False
         elif key_event.key == pygame.K_r and len(self.shopkeeper.items) != 0:
             self.shopkeeper.type = ShopTypes.SELL
-           # for i in range(len(self.items)):
-           #     player.give(self.items[0])
-           #     self.shopkeeper(self.items[0])
+        # for i in range(len(self.items)):
+        #     player.give(self.items[0])
+        #     self.shopkeeper(self.items[0])
 
     def draw(self):
         pygame.draw.rect(screen, (172, 237, 182), self.rect)
@@ -132,9 +135,13 @@ class Shopping:
             purchase_label = game_font.render("You have purchase an item!", True,
                                               (255, 255, 255))
             screen.blit(purchase_label, (self.rect.x + 15, self.rect.y + 20))
-        if self.not_enough_money:
+        elif self.not_enough_money:
             poor_label = game_font.render("You can't afford this item!", True,
-                                              (255, 255, 255))
+                                          (255, 255, 255))
+            screen.blit(poor_label, (self.rect.x + 15, self.rect.y + 20))
+        else:
+            poor_label = game_font.render("No items left!", True,
+                                          (255, 255, 255))
             screen.blit(poor_label, (self.rect.x + 15, self.rect.y + 20))
         gold_label = game_font.render("Your gold: {}".format(player.inventory.gold), True, (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
@@ -172,12 +179,15 @@ class Selling:
             else:
                 self.current_item += -1
         elif key_event.key == pygame.K_e and len(self.shopkeeper.items) != 0:
-            value = self.items[self.current_item].value
-            player.take(self.items[self.current_item])
-            if self.current_item == len(self.items):
-                self.current_item -= 1
-            player.give_gold((int)(value*shopkeepers_cut))
-            self.sold = True
+            if len(self.items) != 0:
+                value = self.items[self.current_item].value
+                player.take(self.items[self.current_item])
+                if self.current_item == len(self.items):
+                    self.current_item -= 1
+                player.give_gold((int)(value * shopkeepers_cut))
+                self.sold = True
+            else:
+                self.sold = False
         elif key_event.key == pygame.K_r and len(self.shopkeeper.items) != 0:
             self.shopkeeper.type = ShopTypes.BUY
             self.sold = False
@@ -192,7 +202,7 @@ class Selling:
         info = None
         if self.sold:
             sold_label = game_font.render("You have sold an item!", True,
-                                              (255, 255, 255))
+                                          (255, 255, 255))
             screen.blit(sold_label, (self.rect.x + 15, self.rect.y + 20))
         gold_label = game_font.render("Your gold: {}".format(player.inventory.gold), True, (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
@@ -200,7 +210,10 @@ class Selling:
             info = game_font.render("No items your inventory", True, (255, 255, 255))
             screen.blit(info, (item_rect.x + 165, item_rect.y + 5))
         else:
-            info = self.items[self.current_item].get_info()
+            if len(self.items) != 0:
+                info = self.items[self.current_item].get_info()
+            else:
+                info = [game_font.render("No items your inventory", True, (255, 255, 255))]
             for i in range(len(info)):
                 screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
         screen.blit(game_font.render("E: sell one, R: switch to buy, Esc: leave", True, (255, 255, 255)),
@@ -245,7 +258,8 @@ class Looting:
         item_rect.x = self.rect.x + 15
         item_rect.y = self.rect.y + 50
         pygame.draw.rect(screen, (255, 0, 0), item_rect)
-        gold_label = game_font.render("You have looted {} from this".format(self.enemy.initial_gold), True, (255, 255, 255))
+        gold_label = game_font.render("You have looted {} from this".format(self.enemy.initial_gold), True,
+                                      (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
         info = None
         if len(self.items) == 0:
@@ -269,7 +283,7 @@ class Inventory:
             inventory_x, inventory_y, inventory_width, inventory_height
         )
         self.items = items
-        self.gold = 30 # gold na starcie for testing purpuse
+        self.gold = 30  # gold na starcie for testing purpuse
         self.current_item = 0
 
     def update(self, key_event):
@@ -304,7 +318,7 @@ class Inventory:
 
 
 class VisibleOnMap(ObjectOnMap):
-    def __init__(self, x, y, width, height, image, correction = (0,0)):
+    def __init__(self, x, y, width, height, image, correction=(0, 0)):
         super().__init__(x, y, width, height)
         self.image = image
         self.correction = correction
@@ -317,8 +331,8 @@ class VisibleOnMap(ObjectOnMap):
                          int(self.y + self.correction[1] - (self.height / 2))))
 
     def set_correction(self, loc):
-        self.correction = ((screen_width - loc.width)//2,
-                           (screen_height - loc.height)//2)
+        self.correction = ((screen_width - loc.width) // 2,
+                           (screen_height - loc.height) // 2)
 
 
 class Item:
@@ -334,9 +348,8 @@ class Item:
         return str(self)
 
     def get_info(self):
-        lines = []
-        lines.append(game_font.render("{}".format(self.name), True, (255, 255, 255)))
-        lines.append(game_font.render("Value: {}".format(self.value), True, (255, 255, 255)))
+        lines = [game_font.render("{}".format(self.name), True, (255, 255, 255)),
+                 game_font.render("Value: {}".format(self.value), True, (255, 255, 255))]
         return lines
 
 
@@ -389,7 +402,7 @@ class Enemy(VisibleOnMap):
         self.alive = True
         self.items = [Item(5, 30, "loot 3"), Item(5, 30, "loot 4")]
         self.loot = Looting(self.items, self)
-        self.gold = 10 #ustalona wartosc narazie, moze jakas funkcja losujaca z jakiegos przedzialu?
+        self.gold = 10  # ustalona wartosc narazie, moze jakas funkcja losujaca z jakiegos przedzialu?
         self.initial_gold = self.gold
         self.patrol_instructions = None
         self.speed = 0.0
@@ -436,8 +449,8 @@ class Enemy(VisibleOnMap):
                 self.move(destination[0] - self.x, destination[1] - self.y)
                 self.patrol_instructions.append(self.patrol_instructions.pop(0))
             else:
-                px = abs(0.0 + destination[0] - self.x)/(abs(destination[1] - self.y) + abs(destination[0] - self.x))
-                py = abs(0.0 + destination[1] - self.y)/(abs(destination[1] - self.y) + abs(destination[0] - self.x))
+                px = abs(0.0 + destination[0] - self.x) / (abs(destination[1] - self.y) + abs(destination[0] - self.x))
+                py = abs(0.0 + destination[1] - self.y) / (abs(destination[1] - self.y) + abs(destination[0] - self.x))
                 sx = self.speed * px * math.copysign(1, destination[0] - self.x)
                 sy = self.speed * py * math.copysign(1, destination[1] - self.y)
                 self.move(sx * time, sy * time)
@@ -479,7 +492,7 @@ class Chest(VisibleOnMap):
         self.opener = None
         self.items = [Item(3, 30, "loot 1"), Item(4, 30, "loot 2")]
         self.loot = Looting(self.items, self)
-        self.gold = 10 #ustalona wartosc narazie, moze jakas funkcja losujaca z jakiegos przedzialu?
+        self.gold = 10  # ustalona wartosc narazie, moze jakas funkcja losujaca z jakiegos przedzialu?
         self.initial_gold = self.gold
 
     def interact(self, player):
@@ -877,7 +890,7 @@ while running:
     player.move(dx * dt, dy * dt)
     for e in player.location.enemies:
         e.patrol(dt)
-        e.stun = max(e.stun-dt, 0)
+        e.stun = max(e.stun - dt, 0)
         if is_collision(e, player):
             correct_collision(e, player)
             e.attack(player)
