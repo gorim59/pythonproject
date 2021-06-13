@@ -139,10 +139,6 @@ class Shopping:
             poor_label = game_font.render("You can't afford this item!", True,
                                           (255, 255, 255))
             screen.blit(poor_label, (self.rect.x + 15, self.rect.y + 20))
-        else:
-            poor_label = game_font.render("No items left!", True,
-                                          (255, 255, 255))
-            screen.blit(poor_label, (self.rect.x + 15, self.rect.y + 20))
         gold_label = game_font.render("Your gold: {}".format(player.inventory.gold), True, (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
         if len(self.items) == 0:
@@ -199,7 +195,6 @@ class Selling:
         item_rect.x = self.rect.x + 15
         item_rect.y = self.rect.y + 50
         pygame.draw.rect(screen, (255, 0, 0), item_rect)
-        info = None
         if self.sold:
             sold_label = game_font.render("You have sold an item!", True,
                                           (255, 255, 255))
@@ -210,10 +205,7 @@ class Selling:
             info = game_font.render("No items your inventory", True, (255, 255, 255))
             screen.blit(info, (item_rect.x + 165, item_rect.y + 5))
         else:
-            if len(self.items) != 0:
-                info = self.items[self.current_item].get_info()
-            else:
-                info = [game_font.render("No items your inventory", True, (255, 255, 255))]
+            info = self.items[self.current_item].get_info()
             for i in range(len(info)):
                 screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
         screen.blit(game_font.render("E: sell one, R: switch to buy, Esc: leave", True, (255, 255, 255)),
@@ -261,7 +253,6 @@ class Looting:
         gold_label = game_font.render("You have looted {} from this".format(self.enemy.initial_gold), True,
                                       (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
-        info = None
         if len(self.items) == 0:
             info = game_font.render("Empty", True, (255, 255, 255))
             screen.blit(info, (item_rect.x + 165, item_rect.y + 5))
@@ -278,7 +269,8 @@ class Looting:
 
 
 class Inventory:
-    def __init__(self, items):
+    def __init__(self, owner, items):
+        self.owner = owner
         self.rect = pygame.Rect(
             inventory_x, inventory_y, inventory_width, inventory_height
         )
@@ -297,6 +289,12 @@ class Inventory:
                 self.current_item = len(self.items) - 1
             else:
                 self.current_item += -1
+        elif key_event.key == pygame.K_e and len(self.items) != 0:
+            item_to_change = self.items[self.current_item]
+            if self.owner.have_equipped(item_to_change):
+                self.owner.take_off(item_to_change)
+            else:
+                self.owner.equip(item_to_change)
 
     def draw(self):
         pygame.draw.rect(screen, (172, 237, 182), self.rect)
@@ -307,7 +305,8 @@ class Inventory:
         pygame.draw.rect(screen, (255, 0, 0), item_rect)
         gold_label = game_font.render("Gold: {}".format(self.gold), True, (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
-        info = None
+        gold_label = game_font.render("Equipment: {}".format(self.owner.equipment_list()), True, (255, 255, 255))
+        screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 25))
         if len(self.items) == 0:
             info = game_font.render("Empty", True, (255, 255, 255))
             screen.blit(info, (item_rect.x + 165, item_rect.y + 5))
@@ -315,6 +314,8 @@ class Inventory:
             info = self.items[self.current_item].get_info()
             for i in range(len(info)):
                 screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
+        screen.blit(game_font.render("E: to equip, Esc: leave", True, (255, 255, 255)),
+                    (self.rect.x + 15, self.rect.y + 280))
 
 
 class VisibleOnMap(ObjectOnMap):
@@ -340,6 +341,7 @@ class Item:
         self.id = item_id
         self.value = value
         self.name = name
+        self.type = None
 
     def __str__(self):
         return "{} (id:{} gold:{})".format(self.name, self.id, self.value)
@@ -348,9 +350,25 @@ class Item:
         return str(self)
 
     def get_info(self):
-        lines = [game_font.render("{}".format(self.name), True, (255, 255, 255)),
-                 game_font.render("Value: {}".format(self.value), True, (255, 255, 255))]
-        return lines
+        return [game_font.render("{}".format(self.name), True, (255, 255, 255)),
+                game_font.render("Value: {}".format(self.value), True, (255, 255, 255))]
+
+
+class EquipmentSlots(Enum):
+    WEAPON = 1
+    SHIELD = 2
+
+
+class Sword(Item):
+    def __init__(self, item_id, value, name):
+        super().__init__(item_id, value, name)
+        self.type = EquipmentSlots.WEAPON
+
+
+class Shield(Item):
+    def __init__(self, item_id, value, name):
+        super().__init__(item_id, value, name)
+        self.type = EquipmentSlots.SHIELD
 
 
 class Player(VisibleOnMap):
@@ -360,10 +378,31 @@ class Player(VisibleOnMap):
         self.health = 100
         self.max_health = self.health  ###
         self.damage = 10
-        self.items = [Item(1, 30, "sword"), Item(1, 30, "shield")]
+        self.items = [Sword(1, 30, "sword"), Shield(1, 30, "shield")]
         self.evasion = 0
         self.location = loc
-        self.inventory = Inventory(self.items)
+        self.inventory = Inventory(self, self.items)
+        self.equipment = dict()
+
+    def equipment_list(self):
+        return [value.name for value in self.equipment.values() if value is not None]
+
+    def have(self, item):
+        return item in self.items
+
+    def equip(self, item):
+        if item.type is not None:
+            self.equipment[item.type] = item
+
+    def take_off(self, item):
+        if self.have_equipped(item):
+            self.equipment[item.type] = None
+
+    def have_equipped(self, item):
+        if item.type is not None:
+            self.equipment.setdefault(item.type)
+            return self.equipment[item.type] is not None
+        return False
 
     def give(self, item):
         self.items.append(item)
@@ -371,9 +410,9 @@ class Player(VisibleOnMap):
     def take(self, item):
         if self.have(item):
             self.items.remove(item)
-
-    def have(self, item):
-        return item in self.items
+        if not self.have(item):
+            if self.have_equipped(item):
+                self.take_off(item)
 
     def give_gold(self, amount):
         self.inventory.gold += amount
@@ -392,6 +431,25 @@ class Player(VisibleOnMap):
                          (0 + 10, screen_height - 20, int(100 - (50 * (1 - (self.health / self.max_health)))), 15))
 
 
+class Container:
+    def __init__(self):
+        self.items = []
+        self.gold = 0
+
+    def give(self, item):
+        self.items.append(item)
+
+    def take(self, item):
+        if self.have(item):
+            self.items.remove(item)
+
+    def take_gold(self):
+        self.gold = 0
+
+    def have(self, item):
+        return item in self.items
+
+
 class Enemy(VisibleOnMap):
     def __init__(self, x, y, width, height, alive_image, dead_image):
         super().__init__(x, y, width, height, alive_image)
@@ -401,16 +459,22 @@ class Enemy(VisibleOnMap):
         self.damage = 10
         self.alive = True
         self.items = [Item(5, 30, "loot 3"), Item(5, 30, "loot 4")]
-        self.loot = Looting(self.items, self)
+        #self.loot = Looting(self.items, self)
         self.gold = 10  # ustalona wartosc narazie, moze jakas funkcja losujaca z jakiegos przedzialu?
         self.initial_gold = self.gold
         self.patrol_instructions = None
         self.speed = 0.0
         self.stun = 0
 
+    def loot(self):
+        return Looting(self.items, self)
+
     def interact(self, curr_player):
         if self.alive:
             self.get_attacked(curr_player)
+            if not self.alive:
+                global loot_window
+                loot_window = self.loot()
         return not self.alive
 
     def get_attacked(self, curr_player):
@@ -485,15 +549,18 @@ class Enemy(VisibleOnMap):
         return item in self.items
 
 
-class Chest(VisibleOnMap):
+class Chest(VisibleOnMap, Container):
     def __init__(self, x, y, width=32, height=20, image=chestImage):
         super().__init__(x, y, width, height, image)
         self.open = False
         self.opener = None
         self.items = [Item(3, 30, "loot 1"), Item(4, 30, "loot 2")]
-        self.loot = Looting(self.items, self)
+        # self.loot = Looting(self.items, self)
         self.gold = 10  # ustalona wartosc narazie, moze jakas funkcja losujaca z jakiegos przedzialu?
         self.initial_gold = self.gold
+
+    def loot(self):
+        return Looting(self.items, self)
 
     def interact(self, player):
         # if self.open:
@@ -507,18 +574,6 @@ class Chest(VisibleOnMap):
         #     self.open_chest(player)
         #     return False
         return True
-
-    # def open_chest(self, player):
-    #     if not self.open:
-    #         print("Opening chest")
-    #         print(self.items)
-    #         self.open = True
-    #         self.opener = player
-
-    # def close_chest(self):
-    #     if self.open:
-    #         print("Closing chest")
-    #         self.open = False
 
     def give(self, item):
         self.items.append(item)
@@ -557,8 +612,8 @@ class Shopkeeper(VisibleOnMap):
     def __init__(self, x, y, width=32, height=32, image=shopkeeper_image):
         super().__init__(x, y, width, height, image)
         self.items = [Item(3, 30, "loot 1"), Item(4, 30, "loot 2")]
-        self.loot = Shopping(self.items, self)
-        self.sell = Selling(player.items, self)
+        #self.loot = Shopping(self.items, self)
+        #self.sell = Selling(player.items, self)
         self.type = ShopTypes.BUY
 
     def interact(self, player):
@@ -573,6 +628,12 @@ class Shopkeeper(VisibleOnMap):
 
     def have(self, item):
         return item in self.items
+
+    def sell(self):
+        return Selling(player.items, self)
+
+    def loot(self):
+        return Shopping(self.items, self)
 
 
 class ShrineTypes(Enum):
@@ -724,41 +785,6 @@ for e in room2.enemies:
     e.set_correction(room1)
 
 
-# try:
-#     playerImg = pygame.image.load('player.png')
-# except OSError:
-#     print("No player")
-
-# Enemies
-# enemyImg = None
-# dead_imageImg = None
-#
-# try:
-#     enemyImg = pygame.image.load('enemy.png')
-# except OSError:
-#     print("No enemy")
-# try:
-#     dead_imageImg = pygame.image.load('dead enemy.png')
-# except OSError:
-#     print("No dead enemy")
-
-# chestImage = None
-# lit_campfire_image = None
-# unlit_campfire_image = None
-# used_shrine_image = None
-# unused_shrine_image = None
-# door_image = None
-# try:
-#     door_image = pygame.image.load('door.png')
-#     chestImage = pygame.image.load('chest.png')
-#     unlit_campfire_image = pygame.image.load('unlit_campfire.png')
-#     lit_campfire_image = pygame.image.load('lit_campfire.png')
-#     used_shrine_image = pygame.image.load('used_shrine_image.png')
-#     unused_shrine_image = pygame.image.load('unused_shrine_image.png')
-# except OSError:
-#     print('No object image')
-
-
 def out_of(self, map_object):
     return (screen_width + map_object.width - self.width) / 2.0 > map_object.x or \
            (screen_width - map_object.width + self.width) / 2.0 < map_object.x or \
@@ -819,6 +845,8 @@ while running:
                 interact_E = True
                 if looting:
                     loot_window.update(event)
+                if inventory:
+                    player.inventory.update(event)
             if event.key == pygame.K_r:
                 interact_R = True
                 if looting:
@@ -905,8 +933,9 @@ while running:
     # interacting
     closest = closest_object(player.location.objects + player.location.enemies)
     if is_nearby(closest, player):
-        if isinstance(closest, Enemy):
-            loot_window = closest.loot
+        if isinstance(closest, Enemy) and not looting:
+            if interact_E and not closest.alive:
+                loot_window = closest.loot()
             if closest.alive:
                 screen.blit(attack_label,
                             (closest.correction[0] + closest.x + closest.width,
@@ -917,15 +946,18 @@ while running:
                              closest.correction[1] + closest.y - closest.height))
         elif isinstance(closest, Chest):
             if not looting:
-                loot_window = closest.loot
+                if interact_E:
+                    loot_window = closest.loot()
                 screen.blit(interact_label,
                             (closest.correction[0] + closest.x + closest.width,
                              closest.correction[1] + closest.y - closest.height))
         elif isinstance(closest, Shopkeeper):
             if closest.type == ShopTypes.BUY:
-                loot_window = closest.loot
+                if interact_E or interact_R:
+                    loot_window = closest.loot()
             elif closest.type == ShopTypes.SELL:
-                loot_window = closest.sell
+                if interact_E or interact_R:
+                    loot_window = closest.sell()
             if not looting:
                 screen.blit(interact_label,
                             (closest.correction[0] + closest.x + closest.width,
@@ -936,9 +968,11 @@ while running:
                          closest.correction[1] + closest.y - closest.height))
         if interact_E:
             looting = closest.interact(player) or False
+        if not is_nearby(closest, player):
+            looting = False
 
-    if inventory:
-        print(player.items)
+    # if inventory:
+    #     print(player.items)
     if player.location:
         if player.location.out_of(player):
             player.location.correct(player)
