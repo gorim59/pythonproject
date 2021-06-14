@@ -177,6 +177,7 @@ class Selling:
         elif key_event.key == pygame.K_e and len(self.shopkeeper.items) != 0:
             if len(self.items) != 0:
                 value = self.items[self.current_item].value
+                self.shopkeeper.give(self.items[self.current_item])
                 player.take(self.items[self.current_item])
                 if self.current_item == len(self.items):
                     self.current_item -= 1
@@ -275,7 +276,7 @@ class Inventory:
             inventory_x, inventory_y, inventory_width, inventory_height
         )
         self.items = items
-        self.gold = 30  # gold na starcie for testing purpuse
+        self.gold = 30
         self.current_item = 0
 
     def update(self, key_event):
@@ -290,11 +291,17 @@ class Inventory:
             else:
                 self.current_item += -1
         elif key_event.key == pygame.K_e and len(self.items) != 0:
-            item_to_change = self.items[self.current_item]
-            if self.owner.have_equipped(item_to_change):
-                self.owner.take_off(item_to_change)
+            highlighted_item = self.items[self.current_item]
+            if highlighted_item.usable is True:
+                highlighted_item.use(self.owner)
+                player.take(highlighted_item)
+                if self.current_item == len(self.items):
+                    self.current_item -= 1
             else:
-                self.owner.equip(item_to_change)
+                if self.owner.have_equipped(highlighted_item):
+                    self.owner.take_off(highlighted_item)
+                else:
+                    self.owner.equip(highlighted_item)
 
     def draw(self):
         pygame.draw.rect(screen, (172, 237, 182), self.rect)
@@ -314,7 +321,11 @@ class Inventory:
             info = self.items[self.current_item].get_info()
             for i in range(len(info)):
                 screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
-        screen.blit(game_font.render("E: to equip, Esc: leave", True, (255, 255, 255)),
+        if self.items[self.current_item].usable is True:
+            screen.blit(game_font.render("E: to use, Esc: leave", True, (255, 255, 255)),
+                        (self.rect.x + 15, self.rect.y + 280))
+        else:
+            screen.blit(game_font.render("E: to equip, Esc: leave", True, (255, 255, 255)),
                     (self.rect.x + 15, self.rect.y + 280))
 
 
@@ -342,6 +353,7 @@ class Item:
         self.value = value
         self.name = name
         self.type = None
+        self.usable = False
 
     def __str__(self):
         return "{} (id:{} gold:{})".format(self.name, self.id, self.value)
@@ -352,6 +364,43 @@ class Item:
     def get_info(self):
         return [game_font.render("{}".format(self.name), True, (255, 255, 255)),
                 game_font.render("Value: {}".format(self.value), True, (255, 255, 255))]
+
+
+class HealingPotion(Item):
+    def __init__(self):
+        super().__init__(101, 20, "Healing Potion")
+        self.healing_value = 20
+        self.usable = True
+
+    def use(self, user):
+        if user.health + self.healing_value > user.max_health:
+            user.health = user.max_health
+        else:
+            user.health += self.healing_value
+        user.inventory.items.remove(self)
+
+
+class Glyph(Item):
+    def __init__(self):
+        super().__init__(101, 20, "Glyph")
+        self.healing_value = 50
+        self.usable = True
+        self.buff = random.choice(list(BuffTypes))
+        self.name = self.name + " of " + self.buff.name
+
+    def use(self, user):
+        if self.type == BuffTypes.Haste:
+            user.speed += 0.02
+            print("Movement speed increased")
+        elif self.type == BuffTypes.Healing:
+            user.max_health += 20
+            print("Maximum health increased")
+        elif self.type == BuffTypes.Damage:
+            user.damage += 2
+            print("Damage increased")
+        elif self.type == BuffTypes.Evasion:
+            user.evasion += 2
+            print("Evasion increased")
 
 
 class EquipmentSlots(Enum):
@@ -458,16 +507,22 @@ class Enemy(VisibleOnMap):
         self.max_health = self.health
         self.damage = 10
         self.alive = True
-        self.items = [Item(5, 30, "loot 3"), Item(5, 30, "loot 4")]
-        #self.loot = Looting(self.items, self)
-        self.gold = 10  # ustalona wartosc narazie, moze jakas funkcja losujaca z jakiegos przedzialu?
+        self.items = []
+        self.gold = random.randint(0, 10)
         self.initial_gold = self.gold
         self.patrol_instructions = None
         self.speed = 0.0
         self.stun = 0
+        self.generate_loot()
 
     def loot(self):
         return Looting(self.items, self)
+
+    def generate_loot(self):
+        if random.randint(0, 100) < 10:
+            self.items.append(HealingPotion())
+        if random.randint(0, 100) < 5:
+            self.items.append(Glyph())
 
     def interact(self, curr_player):
         if self.alive:
@@ -531,9 +586,6 @@ class Enemy(VisibleOnMap):
                                       self.correction[1] + self.y - self.height,
                                       int(50 - (50 * (1 - (self.health / self.max_health)))), 5))
         super().draw()
-        #     screen.blit(self.image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
-        # else:
-        #     screen.blit(self.dead_image, (int(self.x - (self.width / 2)), int(self.y - (self.height / 2))))
 
     def give(self, item):
         self.items.append(item)
@@ -554,25 +606,14 @@ class Chest(VisibleOnMap, Container):
         super().__init__(x, y, width, height, image)
         self.open = False
         self.opener = None
-        self.items = [Item(3, 30, "loot 1"), Item(4, 30, "loot 2")]
-        # self.loot = Looting(self.items, self)
-        self.gold = 10  # ustalona wartosc narazie, moze jakas funkcja losujaca z jakiegos przedzialu?
+        self.items = [HealingPotion(), Glyph()]
+        self.gold = random.randint(10, 30)
         self.initial_gold = self.gold
 
     def loot(self):
         return Looting(self.items, self)
 
     def interact(self, player):
-        # if self.open:
-        #     # while len(self.items) > 0:
-        #     #     temp = self.items[0]
-        #     #     self.take(temp)
-        #     #     player.give(temp)
-        #     # self.close_chest()
-        #     return True
-        # else:
-        #     self.open_chest(player)
-        #     return False
         return True
 
     def give(self, item):
@@ -601,6 +642,8 @@ class Campfire(VisibleOnMap):
         elif self.lit is False:
             closest.image = lit_campfire_image
             closest.lit = True
+            player.health = player.max_health
+            print("Your health is restored!")
 
 
 class ShopTypes(Enum):
@@ -611,9 +654,7 @@ class ShopTypes(Enum):
 class Shopkeeper(VisibleOnMap):
     def __init__(self, x, y, width=32, height=32, image=shopkeeper_image):
         super().__init__(x, y, width, height, image)
-        self.items = [Item(3, 30, "loot 1"), Item(4, 30, "loot 2")]
-        #self.loot = Shopping(self.items, self)
-        #self.sell = Selling(player.items, self)
+        self.items = [Glyph(), HealingPotion()]
         self.type = ShopTypes.BUY
 
     def interact(self, player):
@@ -636,11 +677,11 @@ class Shopkeeper(VisibleOnMap):
         return Shopping(self.items, self)
 
 
-class ShrineTypes(Enum):
-    HEALING = 1
-    HASTE = 2
-    DAMAGE = 3
-    EVASION = 4
+class BuffTypes(Enum):
+    Healing = 1
+    Haste = 2
+    Damage = 3
+    Evasion = 4
 
 
 class Shrine(VisibleOnMap):
@@ -650,18 +691,18 @@ class Shrine(VisibleOnMap):
         self.type = type
 
     def bonus(self, receiving_player):
-        if self.type == ShrineTypes.HASTE:
+        if self.type == BuffTypes.Haste:
             receiving_player.speed += 0.02
             print("Movement speed increased")
-        elif self.type == ShrineTypes.HEALTH:
+        elif self.type == BuffTypes.Healing:
             receiving_player.max_health += 20
             print("Maximum health increased")
-        elif self.type == ShrineTypes.DAMAGE:
+        elif self.type == BuffTypes.Damage:
             receiving_player.damage += 2
             print("Damage increased")
-        elif self.type == ShrineTypes.EVASION:
+        elif self.type == BuffTypes.Evasion:
             receiving_player.damage += 2
-            print("EVASION increased")
+            print("Evasion increased")
 
     def interact(self, player):
         if self.used is False:
@@ -673,9 +714,9 @@ class Shrine(VisibleOnMap):
 
 
 class Door(VisibleOnMap):
-    def __init__(self, x, y, width=32, height=32, whereTo=None, image=None):
+    def __init__(self, x, y, width=32, height=32, where_to=None, image=None):
         super().__init__(x, y, width, height, image)
-        self.direction = whereTo
+        self.direction = where_to
         self.collisional = False
 
     def interact(self, opening_player):
@@ -765,7 +806,7 @@ room1.enemies = [Enemy(100, 200, 16, 16, enemyImg, dead_imageImg)]
 
 room1.objects = [Chest(250, 200, 32, 20, chestImage),
                  Campfire(300, 200, 32, 10, unlit_campfire_image),
-                 Shrine(x=200, y=200, type=ShrineTypes.HASTE, width=32, height=32, image=unused_shrine_image),
+                 Shrine(x=200, y=200, type=BuffTypes.Haste, width=32, height=32, image=unused_shrine_image),
                  Door(16 / 2.0, room1.height / 2.0, 16, 16, room2, door_image),
                  Shopkeeper(x=350, y=200)]
 
@@ -933,7 +974,7 @@ while running:
     # interacting
     closest = closest_object(player.location.objects + player.location.enemies)
     if is_nearby(closest, player):
-        if isinstance(closest, Enemy) and not looting:
+        if isinstance(closest, Enemy):
             if interact_E and not closest.alive:
                 loot_window = closest.loot()
             if closest.alive:
