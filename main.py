@@ -326,7 +326,7 @@ class Inventory:
                         (self.rect.x + 15, self.rect.y + 280))
         else:
             screen.blit(game_font.render("E: to equip, Esc: leave", True, (255, 255, 255)),
-                    (self.rect.x + 15, self.rect.y + 280))
+                        (self.rect.x + 15, self.rect.y + 280))
 
 
 class VisibleOnMap(ObjectOnMap):
@@ -687,8 +687,10 @@ class BuffTypes(Enum):
 class Shrine(VisibleOnMap):
     def __init__(self, x, y, type, width=32, height=32, image=unused_shrine_image):
         super().__init__(x, y, width, height, image)
-        self.used = False
         self.type = type
+        if self.type is None:
+            self.type = random.choice([i for i in BuffTypes])
+        self.used = False
 
     def bonus(self, receiving_player):
         if self.type == BuffTypes.Haste:
@@ -722,6 +724,8 @@ class Door(VisibleOnMap):
     def interact(self, opening_player):
         opening_player.x = screen_width / 2.0
         opening_player.y = screen_height / 2.0
+        if self.direction is None:
+            generate_room(opening_player.location, self)
         for objects in self.direction.objects:
             if isinstance(objects, Door):
                 if objects.direction is opening_player.location:
@@ -785,13 +789,17 @@ def is_nearby(A, B):
         return False
 
 
+def distance(A: ObjectOnMap, B: ObjectOnMap):
+    return math.sqrt((A.x - B.x) ** 2 + (A.y - B.y) ** 2)
+
+
 def closest_object(A):
     curr_min = float("Inf")
     closest_objet = None
     for close_object in A:
-        distance = math.sqrt((player.x - close_object.x) ** 2 + (player.y - close_object.y) ** 2)
-        if distance < curr_min:
-            curr_min = distance
+        distance_from_player = math.sqrt((player.x - close_object.x) ** 2 + (player.y - close_object.y) ** 2)
+        if distance_from_player < curr_min:
+            curr_min = distance_from_player
             closest_objet = close_object
     return closest_objet
 
@@ -808,6 +816,7 @@ room1.objects = [Chest(250, 200, 32, 20, chestImage),
                  Campfire(300, 200, 32, 10, unlit_campfire_image),
                  Shrine(x=200, y=200, type=BuffTypes.Haste, width=32, height=32, image=unused_shrine_image),
                  Door(16 / 2.0, room1.height / 2.0, 16, 16, room2, door_image),
+                 Door(room1.width - 16 / 2.0, room1.height / 2.0, 16, 16, None, door_image),
                  Shopkeeper(x=350, y=200)]
 
 room2.objects = [Door(room2.width - 16 / 2.0, room2.height / 2.0, 16, 16, room1, door_image)]
@@ -826,11 +835,66 @@ for e in room2.enemies:
     e.set_correction(room1)
 
 
-def out_of(self, map_object):
-    return (screen_width + map_object.width - self.width) / 2.0 > map_object.x or \
-           (screen_width - map_object.width + self.width) / 2.0 < map_object.x or \
-           (screen_height + map_object.height - self.height) / 2.0 > map_object.y or \
-           (screen_height - map_object.height + self.height) / 2.0 < map_object.y
+# def out_of(self, map_object):
+#     return (screen_width + map_object.width - self.width) / 2.0 > map_object.x or \
+#            (screen_width - map_object.width + self.width) / 2.0 < map_object.x or \
+#            (screen_height + map_object.height - self.height) / 2.0 > map_object.y or \
+#            (screen_height - map_object.height + self.height) / 2.0 < map_object.y
+
+
+def generate_room(where_from: Room, door: Door, new_width=300, new_height=300):
+    new_x = None
+    new_y = None
+    print(door.x, door.y)
+    if where_from.width < door.x + door.width:
+        print("1")
+        new_x = 16 / 2.0
+    if door.x < door.width:
+        print("2")
+        new_x = new_width - 16 / 2.0
+    if where_from.height < door.y + door.height:
+        print("3")
+        new_y = 16 / 2.0
+    if door.y < door.height:
+        print("4")
+        new_y = new_height - 16 / 2.0
+    if new_x is None:
+        print("5")
+        new_x = door.x * (new_width / where_from.width)
+    if new_y is None:
+        print("6")
+        new_y = door.y * (new_height / where_from.height)
+    where_to = Room(new_width, new_height)
+    new_door = Door(new_x, new_y, 16, 16, where_from, door_image)
+    print(new_door.x, new_door.y)
+    new_empty_x, new_empty_y = new_x, new_y
+    while distance(ObjectOnMap(new_empty_x, new_empty_y, 0, 0), new_door) < 100:
+        if random.random() < 0.5:
+            if random.random() < 0.5:
+                new_empty_x = 16 / 2.0
+            else:
+                new_empty_x = new_width - 16 / 2.0
+            new_empty_y = (random.random() * (new_height - 16) + 16 / 2.0)
+
+        else:
+            if random.random() < 0.5:
+                new_empty_y = 16 / 2.0
+            else:
+                new_empty_y = new_height - 16 / 2.0
+            new_empty_x = (random.random() * (new_width - 16) + 16 / 2.0)
+    where_to.objects.append(new_door)
+    where_to.objects.append(Door(new_empty_x, new_empty_y, 16, 16, None, door_image))
+    object_x, object_y = (random.random() * new_width / 3 + new_width / 3), (
+                random.random() * new_height / 3 + new_height / 3)
+    new_object = random.choice([Chest(object_x, object_y, 32, 20, chestImage),
+                                Campfire(object_x, object_y, 32, 10, unlit_campfire_image),
+                                Shrine(x=object_x, y=object_y, type=None, width=32, height=32,
+                                       image=unused_shrine_image),
+                                Shopkeeper(x=object_x, y=object_y)])
+    where_to.objects.append(new_object)
+    for i in where_to.objects:
+        i.set_correction(where_to)
+    door.direction = where_to
 
 
 # Game Loop
