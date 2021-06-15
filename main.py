@@ -90,8 +90,6 @@ class Shopping:
         self.items = items
         self.gold = 0
         self.current_item = 0
-        self.purchased = False
-        self.not_enough_money = False
 
     def update(self, key_event):
         if key_event.key == pygame.K_DOWN:
@@ -111,16 +109,8 @@ class Shopping:
                     player.give(self.items[self.current_item])
                     self.shopkeeper.take(self.items[self.current_item])
                     player.take_gold(value)
-                    self.purchased = True
-                    self.not_enough_money = False
                     if self.current_item == len(self.shopkeeper.items):
                         self.current_item -= 1
-                else:
-                    self.purchased = False
-                    self.not_enough_money = True
-            else:
-                self.purchased = False
-                self.not_enough_money = False
         elif key_event.key == pygame.K_r and len(self.shopkeeper.items) != 0:
             self.shopkeeper.type = ShopTypes.SELL
         # for i in range(len(self.items)):
@@ -136,19 +126,10 @@ class Shopping:
         if len(self.items) > 0 and self.items[self.current_item].image is not None:
             screen.blit(self.items[self.current_item].image,
                         (item_rect.x, item_rect.y))
-        elif len(self.items) > 0 and  self.items[self.current_item].image is None:
+        elif len(self.items) > 0 and self.items[self.current_item].image is None:
             pygame.draw.rect(screen, (255, 0, 0), item_rect)
             not_found_label = game_font.render("Image not found", True, (255, 255, 255))
             screen.blit(not_found_label, (item_rect.x + 5, item_rect.y + 5))
-        info = None
-        if self.purchased:
-            purchase_label = game_font.render("You have purchase an item!", True,
-                                              (255, 255, 255))
-            screen.blit(purchase_label, (self.rect.x + 15, self.rect.y + 20))
-        elif self.not_enough_money:
-            poor_label = game_font.render("You can't afford this item!", True,
-                                          (255, 255, 255))
-            screen.blit(poor_label, (self.rect.x + 15, self.rect.y + 20))
         gold_label = game_font.render("Your gold: {}".format(player.inventory.gold), True, (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
         if len(self.items) == 0:
@@ -171,7 +152,6 @@ class Selling:
         self.items = items
         self.gold = 0
         self.current_item = 0
-        self.sold = False
 
     def update(self, key_event):
         if key_event.key == pygame.K_DOWN:
@@ -192,12 +172,9 @@ class Selling:
                 if self.current_item == len(self.items):
                     self.current_item -= 1
                 player.give_gold((int)(value * shopkeepers_cut))
-                self.sold = True
-            else:
-                self.sold = False
         elif key_event.key == pygame.K_r and len(self.shopkeeper.items) != 0:
             self.shopkeeper.type = ShopTypes.BUY
-            self.sold = False
+
 
     def draw(self):
         pygame.draw.rect(screen, (145, 145, 100), self.rect)
@@ -212,10 +189,6 @@ class Selling:
             pygame.draw.rect(screen, (255, 0, 0), item_rect)
             not_found_label = game_font.render("Image not found", True, (255, 255, 255))
             screen.blit(not_found_label, (item_rect.x + 5, item_rect.y + 5))
-        if self.sold:
-            sold_label = game_font.render("You have sold an item!", True,
-                                          (255, 255, 255))
-            screen.blit(sold_label, (self.rect.x + 15, self.rect.y + 20))
         gold_label = game_font.render("Your gold: {}".format(player.inventory.gold), True, (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
         if len(self.items) == 0:
@@ -961,7 +934,7 @@ while running:
     interact_E = False
     interact_R = False
     # RGB = Red, Green, Blue
-    screen.fill((60, 10, 20))
+    screen.fill((150, 150, 150))
 
     # Background Image
     if background:
@@ -1113,7 +1086,7 @@ while running:
             elif closest.type == ShopTypes.SELL:
                 if interact_E or interact_R:
                     loot_window = closest.sell()
-            if not looting:
+            if not looting and not inventory:
                 screen.blit(interact_label,
                             (closest.correction[0] + closest.x + closest.width,
                              closest.correction[1] + closest.y - closest.height))
