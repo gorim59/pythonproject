@@ -928,11 +928,16 @@ while running:
     interact_E = False
     interact_R = False
     # RGB = Red, Green, Blue
-    screen.fill((25, 25, 25))
+    screen.fill((60, 10, 20))
 
     # Background Image
     if background:
-        screen.blit(background, (0, 0))
+        screen.blit(background,
+                    ((screen_width - player.location.width)/2,
+                     (screen_height - player.location.height)/2),
+                    (0, 0,
+                     player.location.width,
+                     player.location.height))
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
