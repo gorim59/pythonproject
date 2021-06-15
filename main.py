@@ -31,12 +31,16 @@ playerImg = load_image('player.png')
 enemyImg = load_image('enemy.png')
 dead_imageImg = load_image('dead enemy.png')
 door_image = load_image('door.png')
-chestImage = load_image('chest.png')
+chest_image = load_image('chest.png')
 unlit_campfire_image = load_image('unlit_campfire.png')
 lit_campfire_image = load_image('lit_campfire.png')
 shopkeeper_image = load_image('shopkeeper.png')
 used_shrine_image = load_image('used_shrine_image.png')
 unused_shrine_image = load_image('unused_shrine_image.png')
+healing_pot_image = load_image('healing_pot.png')
+glyph_image = load_image('glyph.png')
+sword_image = load_image('sword.png')
+shield_image = load_image('shield.png')
 background = load_image('background.png')
 
 
@@ -124,12 +128,18 @@ class Shopping:
         #     self.shopkeeper(self.items[0])
 
     def draw(self):
-        pygame.draw.rect(screen, (172, 237, 182), self.rect)
+        pygame.draw.rect(screen, (145, 145, 100), self.rect)
         item_rect = self.rect.copy()
         item_rect.size = 150, 150
         item_rect.x = self.rect.x + 15
         item_rect.y = self.rect.y + 50
-        pygame.draw.rect(screen, (255, 0, 0), item_rect)
+        if len(self.items) > 0 and self.items[self.current_item].image is not None:
+            screen.blit(self.items[self.current_item].image,
+                        (item_rect.x, item_rect.y))
+        elif len(self.items) > 0 and  self.items[self.current_item].image is None:
+            pygame.draw.rect(screen, (255, 0, 0), item_rect)
+            not_found_label = game_font.render("Image not found", True, (255, 255, 255))
+            screen.blit(not_found_label, (item_rect.x + 5, item_rect.y + 5))
         info = None
         if self.purchased:
             purchase_label = game_font.render("You have purchase an item!", True,
@@ -190,12 +200,18 @@ class Selling:
             self.sold = False
 
     def draw(self):
-        pygame.draw.rect(screen, (172, 237, 182), self.rect)
+        pygame.draw.rect(screen, (145, 145, 100), self.rect)
         item_rect = self.rect.copy()
         item_rect.size = 150, 150
         item_rect.x = self.rect.x + 15
         item_rect.y = self.rect.y + 50
-        pygame.draw.rect(screen, (255, 0, 0), item_rect)
+        if len(self.items) > 0 and self.items[self.current_item].image is not None:
+            screen.blit(self.items[self.current_item].image,
+                        (item_rect.x, item_rect.y))
+        elif len(self.items) > 0 and self.items[self.current_item].image is None:
+            pygame.draw.rect(screen, (255, 0, 0), item_rect)
+            not_found_label = game_font.render("Image not found", True, (255, 255, 255))
+            screen.blit(not_found_label, (item_rect.x + 5, item_rect.y + 5))
         if self.sold:
             sold_label = game_font.render("You have sold an item!", True,
                                           (255, 255, 255))
@@ -245,12 +261,18 @@ class Looting:
                 self.enemy.take(self.items[0])
 
     def draw(self):
-        pygame.draw.rect(screen, (172, 237, 182), self.rect)
+        pygame.draw.rect(screen, (145, 145, 100), self.rect)
         item_rect = self.rect.copy()
         item_rect.size = 150, 150
         item_rect.x = self.rect.x + 15
         item_rect.y = self.rect.y + 50
-        pygame.draw.rect(screen, (255, 0, 0), item_rect)
+        if len(self.items) > 0 and self.items[self.current_item].image is not None:
+            screen.blit(self.items[self.current_item].image,
+                        (item_rect.x, item_rect.y))
+        elif len(self.items) > 0 and self.items[self.current_item].image is None:
+            pygame.draw.rect(screen, (255, 0, 0), item_rect)
+            not_found_label = game_font.render("Image not found", True, (255, 255, 255))
+            screen.blit(not_found_label, (item_rect.x + 5, item_rect.y + 5))
         gold_label = game_font.render("You have looted {} from this".format(self.enemy.initial_gold), True,
                                       (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
@@ -304,12 +326,19 @@ class Inventory:
                     self.owner.equip(highlighted_item)
 
     def draw(self):
-        pygame.draw.rect(screen, (172, 237, 182), self.rect)
+        pygame.draw.rect(screen, (145, 145, 100), self.rect)
         item_rect = self.rect.copy()
         item_rect.size = 150, 150
         item_rect.x = self.rect.x + 15
         item_rect.y = self.rect.y + 50
-        pygame.draw.rect(screen, (255, 0, 0), item_rect)
+
+        if len(self.items) > 0 and self.items[self.current_item].image is not None:
+            screen.blit(self.items[self.current_item].image,
+                        (item_rect.x, item_rect.y))
+        elif len(self.items) > 0 and self.items[self.current_item].image is None:
+            pygame.draw.rect(screen, (255, 0, 0), item_rect)
+            not_found_label = game_font.render("Image not found", True, (255, 255, 255))
+            screen.blit(not_found_label, (item_rect.x + 5, item_rect.y + 5))
         gold_label = game_font.render("Gold: {}".format(self.gold), True, (255, 255, 255))
         screen.blit(gold_label, (self.rect.x + 15, self.rect.y + 5))
         gold_label = game_font.render("Equipment: {}".format(self.owner.equipment_list()), True, (255, 255, 255))
@@ -321,7 +350,7 @@ class Inventory:
             info = self.items[self.current_item].get_info()
             for i in range(len(info)):
                 screen.blit(info[i], (item_rect.x + 165, item_rect.y + ((i + 1) * 12)))
-        if self.items[self.current_item].usable is True:
+        if len(self.items) > 0 and self.items[self.current_item].usable is True:
             screen.blit(game_font.render("E: to use, Esc: leave", True, (255, 255, 255)),
                         (self.rect.x + 15, self.rect.y + 280))
         else:
@@ -353,6 +382,7 @@ class Item:
         self.value = value
         self.name = name
         self.type = None
+        self.image = None
         self.usable = False
 
     def __str__(self):
@@ -370,6 +400,7 @@ class HealingPotion(Item):
     def __init__(self):
         super().__init__(101, 20, "Healing Potion")
         self.healing_value = 20
+        self.image = healing_pot_image
         self.usable = True
 
     def use(self, user):
@@ -382,8 +413,8 @@ class HealingPotion(Item):
 
 class Glyph(Item):
     def __init__(self):
-        super().__init__(101, 20, "Glyph")
-        self.healing_value = 50
+        super().__init__(101, 50, "Glyph")
+        self.image = glyph_image
         self.usable = True
         self.buff = random.choice(list(BuffTypes))
         self.name = self.name + " of " + self.buff.name
@@ -411,12 +442,14 @@ class EquipmentSlots(Enum):
 class Sword(Item):
     def __init__(self, item_id, value, name):
         super().__init__(item_id, value, name)
+        self.image = sword_image
         self.type = EquipmentSlots.WEAPON
 
 
 class Shield(Item):
     def __init__(self, item_id, value, name):
         super().__init__(item_id, value, name)
+        self.image = shield_image
         self.type = EquipmentSlots.SHIELD
 
 
@@ -602,7 +635,7 @@ class Enemy(VisibleOnMap):
 
 
 class Chest(VisibleOnMap, Container):
-    def __init__(self, x, y, width=32, height=20, image=chestImage):
+    def __init__(self, x, y, width=32, height=20, image=chest_image):
         super().__init__(x, y, width, height, image)
         self.open = False
         self.opener = None
@@ -812,7 +845,7 @@ player.set_correction(player.location)
 
 room1.enemies = [Enemy(100, 200, 16, 16, enemyImg, dead_imageImg)]
 
-room1.objects = [Chest(250, 200, 32, 20, chestImage),
+room1.objects = [Chest(250, 200, 32, 20, chest_image),
                  Campfire(300, 200, 32, 10, unlit_campfire_image),
                  Shrine(x=200, y=200, type=BuffTypes.Haste, width=32, height=32, image=unused_shrine_image),
                  Door(16 / 2.0, room1.height / 2.0, 16, 16, room2, door_image),
@@ -896,7 +929,7 @@ def generate_room(where_from: Room, door: Door, new_width=300, new_height=300):
     where_to.objects.append(new_door)
     object_x, object_y = (random.random() * new_width / 3 + new_width / 3), (
             random.random() * new_height / 3 + new_height / 3)
-    new_object = random.choice([Chest(object_x, object_y, 32, 20, chestImage),
+    new_object = random.choice([Chest(object_x, object_y, 32, 20, chest_image),
                                 Campfire(object_x, object_y, 32, 10, unlit_campfire_image),
                                 Enemy(object_x, object_y, 16, 16, enemyImg, dead_imageImg),
                                 Shrine(x=object_x, y=object_y, type=None, width=32, height=32,
@@ -933,8 +966,8 @@ while running:
     # Background Image
     if background:
         screen.blit(background,
-                    ((screen_width - player.location.width)/2,
-                     (screen_height - player.location.height)/2),
+                    ((screen_width - player.location.width) / 2,
+                     (screen_height - player.location.height) / 2),
                     (0, 0,
                      player.location.width,
                      player.location.height))
@@ -975,6 +1008,7 @@ while running:
             if event.key == pygame.K_i:
                 if inventory is False:
                     inventory = True
+                    player.inventory.current_item=0
                 else:
                     inventory = False
             if event.key == pygame.K_ESCAPE:
