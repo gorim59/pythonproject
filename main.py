@@ -845,28 +845,20 @@ for e in room2.enemies:
 def generate_room(where_from: Room, door: Door, new_width=300, new_height=300):
     new_x = None
     new_y = None
-    print(door.x, door.y)
     if where_from.width < door.x + door.width:
-        print("1")
         new_x = 16 / 2.0
     if door.x < door.width:
-        print("2")
         new_x = new_width - 16 / 2.0
     if where_from.height < door.y + door.height:
-        print("3")
         new_y = 16 / 2.0
     if door.y < door.height:
-        print("4")
         new_y = new_height - 16 / 2.0
     if new_x is None:
-        print("5")
         new_x = door.x * (new_width / where_from.width)
     if new_y is None:
-        print("6")
         new_y = door.y * (new_height / where_from.height)
     where_to = Room(new_width, new_height)
     new_door = Door(new_x, new_y, 16, 16, where_from, door_image)
-    print(new_door.x, new_door.y)
     new_empty_x, new_empty_y = new_x, new_y
     while distance(ObjectOnMap(new_empty_x, new_empty_y, 0, 0), new_door) < 100:
         if random.random() < 0.5:
@@ -875,19 +867,38 @@ def generate_room(where_from: Room, door: Door, new_width=300, new_height=300):
             else:
                 new_empty_x = new_width - 16 / 2.0
             new_empty_y = (random.random() * (new_height - 16) + 16 / 2.0)
-
         else:
             if random.random() < 0.5:
                 new_empty_y = 16 / 2.0
             else:
                 new_empty_y = new_height - 16 / 2.0
             new_empty_x = (random.random() * (new_width - 16) + 16 / 2.0)
+    new_empty_door1 = Door(new_empty_x, new_empty_y, 16, 16, None, door_image)
+    where_to.objects.append(new_empty_door1)
+    if random.random() < 0.25:
+        new_empty_x, new_empty_y = new_x, new_y
+        while distance(ObjectOnMap(new_empty_x, new_empty_y, 0, 0), new_door) < 100 \
+                or distance(ObjectOnMap(new_empty_x, new_empty_y, 0, 0), new_empty_door1) < 100:
+            if random.random() < 0.5:
+                if random.random() < 0.5:
+                    new_empty_x = 16 / 2.0
+                else:
+                    new_empty_x = new_width - 16 / 2.0
+                new_empty_y = (random.random() * (new_height - 16) + 16 / 2.0)
+            else:
+                if random.random() < 0.5:
+                    new_empty_y = 16 / 2.0
+                else:
+                    new_empty_y = new_height - 16 / 2.0
+                new_empty_x = (random.random() * (new_width - 16) + 16 / 2.0)
+        new_empty_door2 = Door(new_empty_x, new_empty_y, 16, 16, None, door_image)
+        where_to.objects.append(new_empty_door2)
     where_to.objects.append(new_door)
-    where_to.objects.append(Door(new_empty_x, new_empty_y, 16, 16, None, door_image))
     object_x, object_y = (random.random() * new_width / 3 + new_width / 3), (
-                random.random() * new_height / 3 + new_height / 3)
+            random.random() * new_height / 3 + new_height / 3)
     new_object = random.choice([Chest(object_x, object_y, 32, 20, chestImage),
                                 Campfire(object_x, object_y, 32, 10, unlit_campfire_image),
+                                Enemy(object_x, object_y, 16, 16, enemyImg, dead_imageImg),
                                 Shrine(x=object_x, y=object_y, type=None, width=32, height=32,
                                        image=unused_shrine_image),
                                 Shopkeeper(x=object_x, y=object_y)])
